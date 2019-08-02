@@ -24,7 +24,7 @@ import java.util.function.Predicate;
 import org.junit.Test;
 
 import org.springframework.boot.convert.ApplicationConversionService;
-import org.springframework.cloud.gateway.support.ConfigurationUtils;
+import org.springframework.cloud.gateway.support.ConfigurationService;
 import org.springframework.cloud.gateway.support.StringToZonedDateTimeConverter;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
@@ -39,12 +39,18 @@ import static org.springframework.cloud.gateway.handler.predicate.BetweenRoutePr
  */
 public class BetweenRoutePredicateFactoryTests {
 
-	static <T> T bindConfig(HashMap<String, Object> properties,
+	static <T> T bindConfig(HashMap<String, String> properties,
 			AbstractRoutePredicateFactory<T> factory) {
 		ApplicationConversionService conversionService = new ApplicationConversionService();
 		conversionService.addConverter(new StringToZonedDateTimeConverter());
-		T config = ConfigurationUtils.bindOrCreate(factory, properties, "", "myname",
-				null, conversionService);
+		// @formatter:off
+		T config = new ConfigurationService(null, conversionService, null)
+				.with(factory)
+				.name("myname")
+				.properties(properties)
+				.normalizeProperties(false)
+				.bind();
+		// @formatter:on
 		return config;
 	}
 
@@ -148,7 +154,7 @@ public class BetweenRoutePredicateFactoryTests {
 	}
 
 	boolean runPredicate(String dateString1, String dateString2) {
-		HashMap<String, Object> map = new HashMap<>();
+		HashMap<String, String> map = new HashMap<>();
 		map.put(DATETIME1_KEY, dateString1);
 		map.put(DATETIME2_KEY, dateString2);
 

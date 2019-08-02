@@ -32,13 +32,16 @@ import org.springframework.boot.context.properties.source.MapConfigurationProper
 import org.springframework.core.convert.ConversionService;
 import org.springframework.validation.Validator;
 
+@Deprecated
 public abstract class ConfigurationUtils {
 
+	@Deprecated
 	public static void bind(Object o, Map<String, Object> properties,
 			String configurationPropertyName, String bindingName, Validator validator) {
 		bind(o, properties, configurationPropertyName, bindingName, validator, null);
 	}
 
+	@Deprecated
 	public static void bind(Object o, Map<String, Object> properties,
 			String configurationPropertyName, String bindingName, Validator validator,
 			ConversionService conversionService) {
@@ -49,6 +52,7 @@ public abstract class ConfigurationUtils {
 				conversionService);
 	}
 
+	@Deprecated
 	public static <T> T bindOrCreate(Configurable<T> configurable,
 			Map<String, Object> properties, String configurationPropertyName,
 			String bindingName, Validator validator,
@@ -57,6 +61,7 @@ public abstract class ConfigurationUtils {
 				configurationPropertyName, bindingName, validator, conversionService);
 	}
 
+	@Deprecated
 	public static <T> T bindOrCreate(Class<T> targetClass, Map<String, Object> properties,
 			String configurationPropertyName, String bindingName, Validator validator,
 			ConversionService conversionService) {
