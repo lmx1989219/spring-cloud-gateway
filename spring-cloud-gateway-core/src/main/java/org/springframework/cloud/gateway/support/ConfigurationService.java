@@ -87,17 +87,23 @@ public class ConfigurationService {
 		this.validator = validator;
 	}
 
-	public <T, C extends Configurable<T> & ShortcutConfigurable> Builder<T, C> with(C configurable) {
+	public <T, C extends Configurable<T> & ShortcutConfigurable> Builder<T, C> with(
+			C configurable) {
 		return new Builder<T, C>(this, configurable);
 	}
 
 	public class Builder<T, C extends Configurable<T> & ShortcutConfigurable> {
 
 		private final ConfigurationService service;
+
 		private final C configurable;
+
 		private BiFunction<T, Map<String, Object>, ApplicationEvent> eventFunction;
+
 		private String name;
+
 		private boolean normalizeProperties = true;
+
 		private Map<String, String> properties;
 
 		public Builder(ConfigurationService service, C configurable) {
@@ -142,17 +148,19 @@ public class ConfigurationService {
 				this.properties.forEach(normalizedProperties::put);
 			}
 
-			T bound = ConfigurationUtils.bindOrCreate(this.configurable, normalizedProperties,
-					this.configurable.shortcutFieldPrefix(), this.name,
-					this.service.validator, this.service.conversionService);
+			T bound = ConfigurationUtils.bindOrCreate(this.configurable,
+					normalizedProperties, this.configurable.shortcutFieldPrefix(),
+					this.name, this.service.validator, this.service.conversionService);
 
 			if (this.eventFunction != null && this.service.publisher != null) {
-				ApplicationEvent applicationEvent = this.eventFunction
-						.apply(bound, normalizedProperties);
+				ApplicationEvent applicationEvent = this.eventFunction.apply(bound,
+						normalizedProperties);
 				this.service.publisher.publishEvent(applicationEvent);
 			}
 
 			return bound;
 		}
+
 	}
+
 }

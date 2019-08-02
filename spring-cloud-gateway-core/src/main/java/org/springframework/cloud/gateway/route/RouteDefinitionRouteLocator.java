@@ -180,8 +180,8 @@ public class RouteDefinitionRouteLocator
 								+ definition.getName());
 			}
 			if (logger.isDebugEnabled()) {
-				logger.debug("RouteDefinition " + id + " applying filter " + definition.getArgs() + " to "
-						+ definition.getName());
+				logger.debug("RouteDefinition " + id + " applying filter "
+						+ definition.getArgs() + " to " + definition.getName());
 			}
 
 			// @formatter:off
