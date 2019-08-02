@@ -247,9 +247,9 @@ public class RouteDefinitionRouteLocator
 
 		Map<String, Object> properties = factory.shortcutType().normalize(args, factory,
 				this.parser, this.beanFactory);
-		Object config = factory.newConfig();
-		ConfigurationUtils.bind(config, properties, factory.shortcutFieldPrefix(),
-				predicate.getName(), validator, conversionService);
+		Object config = ConfigurationUtils.bindOrCreate(factory, properties,
+				factory.shortcutFieldPrefix(), predicate.getName(), validator,
+				conversionService);
 		if (this.publisher != null) {
 			this.publisher.publishEvent(
 					new PredicateArgsEvent(this, route.getId(), properties));

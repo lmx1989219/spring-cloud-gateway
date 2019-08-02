@@ -41,12 +41,10 @@ public class BetweenRoutePredicateFactoryTests {
 
 	static <T> T bindConfig(HashMap<String, Object> properties,
 			AbstractRoutePredicateFactory<T> factory) {
-		T config = factory.newConfig();
-
 		ApplicationConversionService conversionService = new ApplicationConversionService();
 		conversionService.addConverter(new StringToZonedDateTimeConverter());
-		ConfigurationUtils.bind(config, properties, "", "myname", null,
-				conversionService);
+		T config = ConfigurationUtils.bindOrCreate(factory, properties, "", "myname",
+				null, conversionService);
 		return config;
 	}
 

@@ -17,17 +17,19 @@
 package org.springframework.cloud.gateway.support;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.aop.framework.Advised;
 import org.springframework.aop.support.AopUtils;
+import org.springframework.boot.context.properties.bind.BindHandler;
 import org.springframework.boot.context.properties.bind.Bindable;
 import org.springframework.boot.context.properties.bind.Binder;
+import org.springframework.boot.context.properties.bind.handler.IgnoreTopLevelConverterNotFoundBindHandler;
+import org.springframework.boot.context.properties.bind.validation.ValidationBindHandler;
+import org.springframework.boot.context.properties.source.ConfigurationPropertySource;
 import org.springframework.boot.context.properties.source.MapConfigurationPropertySource;
 import org.springframework.core.convert.ConversionService;
-import org.springframework.validation.BeanPropertyBindingResult;
-import org.springframework.validation.BindException;
-import org.springframework.validation.BindingResult;
 import org.springframework.validation.Validator;
 
 public abstract class ConfigurationUtils {
@@ -41,19 +43,43 @@ public abstract class ConfigurationUtils {
 			String configurationPropertyName, String bindingName, Validator validator,
 			ConversionService conversionService) {
 		Object toBind = getTargetObject(o);
+		Bindable<?> bindable = Bindable.ofInstance(toBind);
 
-		new Binder(
-				Collections.singletonList(new MapConfigurationPropertySource(properties)),
-				null, conversionService).bind(configurationPropertyName,
-						Bindable.ofInstance(toBind));
+		bindOrCreate(bindable, properties, configurationPropertyName, validator,
+				conversionService);
+	}
 
-		if (validator != null) {
-			BindingResult errors = new BeanPropertyBindingResult(toBind, bindingName);
-			validator.validate(toBind, errors);
-			if (errors.hasErrors()) {
-				throw new RuntimeException(new BindException(errors));
-			}
+	public static <T> T bindOrCreate(Configurable<T> configurable,
+			Map<String, Object> properties, String configurationPropertyName,
+			String bindingName, Validator validator,
+			ConversionService conversionService) {
+		return bindOrCreate(configurable.getConfigClass(), properties,
+				configurationPropertyName, bindingName, validator, conversionService);
+	}
+
+	public static <T> T bindOrCreate(Class<T> targetClass, Map<String, Object> properties,
+			String configurationPropertyName, String bindingName, Validator validator,
+			ConversionService conversionService) {
+		Bindable<T> bindable = Bindable.of(targetClass);
+		return bindOrCreate(bindable, properties, configurationPropertyName, validator,
+				conversionService);
+	}
+
+	static <T> T bindOrCreate(Bindable<T> bindable, Map<String, Object> properties,
+			String configurationPropertyName, Validator validator,
+			ConversionService conversionService) {
+		// see ConfigurationPropertiesBinder from spring boot for this definition.
+		BindHandler handler = new IgnoreTopLevelConverterNotFoundBindHandler();
+
+		if (validator != null) { // TODO: list of validators?
+			handler = new ValidationBindHandler(handler, validator);
 		}
+
+		List<ConfigurationPropertySource> propertySources = Collections
+				.singletonList(new MapConfigurationPropertySource(properties));
+
+		return new Binder(propertySources, null, conversionService)
+				.bindOrCreate(configurationPropertyName, bindable, handler);
 	}
 
 	@SuppressWarnings("unchecked")
