@@ -35,6 +35,7 @@ import reactor.core.publisher.Mono;
 import org.springframework.beans.BeansException;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.cloud.gateway.route.RouteDefinitionRouteLocator;
+import org.springframework.cloud.gateway.support.ConfigurationService;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
@@ -120,15 +121,25 @@ public class RedisRateLimiter extends AbstractRateLimiter<RedisRateLimiter.Confi
 	private String burstCapacityHeader = BURST_CAPACITY_HEADER;
 
 	public RedisRateLimiter(ReactiveStringRedisTemplate redisTemplate,
+			RedisScript<List<Long>> script, ConfigurationService configurationService) {
+		super(Config.class, CONFIGURATION_PROPERTY_NAME, configurationService);
+		this.redisTemplate = redisTemplate;
+		this.script = script;
+		this.initialized.compareAndSet(false, true);
+	}
+
+	@Deprecated
+	public RedisRateLimiter(ReactiveStringRedisTemplate redisTemplate,
 			RedisScript<List<Long>> script, Validator validator) {
 		super(Config.class, CONFIGURATION_PROPERTY_NAME, validator);
 		this.redisTemplate = redisTemplate;
 		this.script = script;
-		initialized.compareAndSet(false, true);
+		this.initialized.compareAndSet(false, true);
 	}
 
+	@Deprecated // TODO: how to replace this?
 	public RedisRateLimiter(int defaultReplenishRate, int defaultBurstCapacity) {
-		super(Config.class, CONFIGURATION_PROPERTY_NAME, null);
+		super(Config.class, CONFIGURATION_PROPERTY_NAME, (Validator) null);
 		this.defaultConfig = new Config().setReplenishRate(defaultReplenishRate)
 				.setBurstCapacity(defaultBurstCapacity);
 	}

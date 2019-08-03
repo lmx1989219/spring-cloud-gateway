@@ -122,7 +122,7 @@ public class RouteDefinitionRouteLocator
 	@Deprecated
 	public void setApplicationEventPublisher(ApplicationEventPublisher publisher) {
 		if (this.configurationService.getPublisher() == null) {
-			this.configurationService.setPublisher(publisher);
+			this.configurationService.setApplicationEventPublisher(publisher);
 		}
 	}
 

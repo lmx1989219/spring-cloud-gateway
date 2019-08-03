@@ -16,19 +16,31 @@
 
 package org.springframework.cloud.gateway.support;
 
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
 
+import org.springframework.aop.framework.Advised;
+import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.factory.BeanFactory;
+import org.springframework.boot.context.properties.bind.BindHandler;
+import org.springframework.boot.context.properties.bind.Bindable;
+import org.springframework.boot.context.properties.bind.Binder;
+import org.springframework.boot.context.properties.bind.handler.IgnoreTopLevelConverterNotFoundBindHandler;
+import org.springframework.boot.context.properties.bind.validation.ValidationBindHandler;
+import org.springframework.boot.context.properties.source.ConfigurationPropertySource;
+import org.springframework.boot.context.properties.source.MapConfigurationPropertySource;
 import org.springframework.context.ApplicationEvent;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.ApplicationEventPublisherAware;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.util.Assert;
 import org.springframework.validation.Validator;
 
-public class ConfigurationService {
+public class ConfigurationService implements ApplicationEventPublisherAware {
 
 	private ApplicationEventPublisher publisher;
 
@@ -55,8 +67,8 @@ public class ConfigurationService {
 		return this.publisher;
 	}
 
-	@Deprecated
-	public void setPublisher(ApplicationEventPublisher publisher) {
+	@Override
+	public void setApplicationEventPublisher(ApplicationEventPublisher publisher) {
 		this.publisher = publisher;
 	}
 
@@ -87,74 +99,182 @@ public class ConfigurationService {
 		this.validator = validator;
 	}
 
-	public <T, C extends Configurable<T> & ShortcutConfigurable> Builder<T, C> with(
+	public <T, C extends Configurable<T> & ShortcutConfigurable> ConfigurableBuilder<T, C> with(
 			C configurable) {
-		return new Builder<T, C>(this, configurable);
+		return new ConfigurableBuilder<T, C>(this, configurable);
 	}
 
-	public class Builder<T, C extends Configurable<T> & ShortcutConfigurable> {
+	public <T> InstanceBuilder<T> with(T instance) {
+		return new InstanceBuilder<T>(this, instance);
+	}
 
-		private final ConfigurationService service;
+	@Deprecated
+	public static <T> T bindOrCreate(Bindable<T> bindable, Map<String, Object> properties,
+			String configurationPropertyName, Validator validator,
+			ConversionService conversionService) {
+		// see ConfigurationPropertiesBinder from spring boot for this definition.
+		BindHandler handler = new IgnoreTopLevelConverterNotFoundBindHandler();
+
+		if (validator != null) { // TODO: list of validators?
+			handler = new ValidationBindHandler(handler, validator);
+		}
+
+		List<ConfigurationPropertySource> propertySources = Collections
+				.singletonList(new MapConfigurationPropertySource(properties));
+
+		return new Binder(propertySources, null, conversionService)
+				.bindOrCreate(configurationPropertyName, bindable, handler);
+	}
+
+	@Deprecated
+	@SuppressWarnings("unchecked")
+	public static <T> T getTargetObject(Object candidate) {
+		try {
+			if (AopUtils.isAopProxy(candidate) && (candidate instanceof Advised)) {
+				return (T) ((Advised) candidate).getTargetSource().getTarget();
+			}
+		}
+		catch (Exception ex) {
+			throw new IllegalStateException("Failed to unwrap proxied object", ex);
+		}
+		return (T) candidate;
+	}
+
+	public class ConfigurableBuilder<T, C extends Configurable<T> & ShortcutConfigurable>
+			extends AbstractBuilder<T, ConfigurableBuilder<T, C>> {
 
 		private final C configurable;
 
-		private BiFunction<T, Map<String, Object>, ApplicationEvent> eventFunction;
-
-		private String name;
-
-		private boolean normalizeProperties = true;
-
-		private Map<String, String> properties;
-
-		public Builder(ConfigurationService service, C configurable) {
-			this.service = service;
+		public ConfigurableBuilder(ConfigurationService service, C configurable) {
+			super(service);
 			this.configurable = configurable;
 		}
 
-		public Builder<T, C> name(String name) {
-			this.name = name;
+		@Override
+		protected ConfigurableBuilder<T, C> getThis() {
 			return this;
 		}
 
-		public Builder<T, C> eventFunction(
+		@Override
+		protected void validate() {
+			Assert.notNull(this.configurable, "configurable may not be null");
+		}
+
+		@Override
+		protected Map<String, Object> normalizeProperties() {
+			if (this.service.beanFactory != null) {
+				return this.configurable.shortcutType().normalize(this.properties,
+						this.configurable, this.service.parser, this.service.beanFactory);
+			}
+			return super.normalizeProperties();
+		}
+
+		@Override
+		protected T doBind() {
+			Bindable<T> bindable = Bindable.of(this.configurable.getConfigClass());
+			T bound = bindOrCreate(bindable, this.normalizedProperties,
+					this.configurable.shortcutFieldPrefix(),
+					/* this.name, */this.service.validator,
+					this.service.conversionService);
+
+			return bound;
+		}
+
+	}
+
+	public class InstanceBuilder<T> extends AbstractBuilder<T, InstanceBuilder<T>> {
+
+		private final T instance;
+
+		public InstanceBuilder(ConfigurationService service, T instance) {
+			super(service);
+			this.instance = instance;
+		}
+
+		@Override
+		protected InstanceBuilder<T> getThis() {
+			return this;
+		}
+
+		@Override
+		protected void validate() {
+			Assert.notNull(this.instance, "instance may not be null");
+		}
+
+		@Override
+		protected T doBind() {
+			T toBind = getTargetObject(this.instance);
+			Bindable<T> bindable = Bindable.ofInstance(toBind);
+			return bindOrCreate(bindable, this.normalizedProperties, this.name,
+					this.service.validator, this.service.conversionService);
+		}
+
+	}
+
+	public abstract class AbstractBuilder<T, B extends AbstractBuilder<T, B>> {
+
+		protected final ConfigurationService service;
+
+		protected BiFunction<T, Map<String, Object>, ApplicationEvent> eventFunction;
+
+		protected String name;
+
+		protected Map<String, Object> normalizedProperties;
+
+		protected Map<String, String> properties;
+
+		public AbstractBuilder(ConfigurationService service) {
+			this.service = service;
+		}
+
+		protected abstract B getThis();
+
+		public B name(String name) {
+			this.name = name;
+			return getThis();
+		}
+
+		public B eventFunction(
 				BiFunction<T, Map<String, Object>, ApplicationEvent> eventFunction) {
 			this.eventFunction = eventFunction;
-			return this;
+			return getThis();
 		}
 
-		public Builder<T, C> normalizeProperties(boolean normalizeProperties) {
-			this.normalizeProperties = normalizeProperties;
-			return this;
+		public B normalizedProperties(Map<String, Object> normalizedProperties) {
+			this.normalizedProperties = normalizedProperties;
+			return getThis();
 		}
 
-		public Builder<T, C> properties(Map<String, String> properties) {
+		public B properties(Map<String, String> properties) {
 			this.properties = properties;
-			return this;
+			return getThis();
 		}
+
+		protected abstract void validate();
+
+		protected Map<String, Object> normalizeProperties() {
+			Map<String, Object> normalizedProperties = new HashMap<>();
+			this.properties.forEach(normalizedProperties::put);
+			return normalizedProperties;
+		}
+
+		protected abstract T doBind();
 
 		public T bind() {
-			Assert.notNull(this.configurable, "configurable may not be null");
+			validate();
 			Assert.hasText(this.name, "name may not be empty");
-			Assert.notNull(this.properties, "properties may not be null");
+			Assert.isTrue(this.properties != null || this.normalizedProperties != null,
+					"properties and normalizedProperties both may not be null");
 
-			Map<String, Object> normalizedProperties;
-			if (this.normalizeProperties) {
-				normalizedProperties = this.configurable.shortcutType().normalize(
-						this.properties, this.configurable, this.service.parser,
-						this.service.beanFactory);
-			}
-			else {
-				normalizedProperties = new HashMap<>();
-				this.properties.forEach(normalizedProperties::put);
+			if (this.normalizedProperties == null) {
+				this.normalizedProperties = normalizeProperties();
 			}
 
-			T bound = ConfigurationUtils.bindOrCreate(this.configurable,
-					normalizedProperties, this.configurable.shortcutFieldPrefix(),
-					this.name, this.service.validator, this.service.conversionService);
+			T bound = doBind();
 
 			if (this.eventFunction != null && this.service.publisher != null) {
 				ApplicationEvent applicationEvent = this.eventFunction.apply(bound,
-						normalizedProperties);
+						this.normalizedProperties);
 				this.service.publisher.publishEvent(applicationEvent);
 			}
 

@@ -39,7 +39,7 @@ import static org.springframework.cloud.gateway.handler.predicate.BetweenRoutePr
  */
 public class BetweenRoutePredicateFactoryTests {
 
-	static <T> T bindConfig(HashMap<String, String> properties,
+	static <T> T bindConfig(HashMap<String, Object> properties,
 			AbstractRoutePredicateFactory<T> factory) {
 		ApplicationConversionService conversionService = new ApplicationConversionService();
 		conversionService.addConverter(new StringToZonedDateTimeConverter());
@@ -47,8 +47,7 @@ public class BetweenRoutePredicateFactoryTests {
 		T config = new ConfigurationService(null, conversionService, null)
 				.with(factory)
 				.name("myname")
-				.properties(properties)
-				.normalizeProperties(false)
+				.normalizedProperties(properties)
 				.bind();
 		// @formatter:on
 		return config;
@@ -154,7 +153,7 @@ public class BetweenRoutePredicateFactoryTests {
 	}
 
 	boolean runPredicate(String dateString1, String dateString2) {
-		HashMap<String, String> map = new HashMap<>();
+		HashMap<String, Object> map = new HashMap<>();
 		map.put(DATETIME1_KEY, dateString1);
 		map.put(DATETIME2_KEY, dateString2);
 

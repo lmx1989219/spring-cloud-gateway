@@ -26,33 +26,34 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
 import org.springframework.boot.context.properties.bind.BindException;
+import org.springframework.boot.context.properties.bind.Bindable;
 import org.springframework.boot.validation.MessageInterpolatorFactory;
 import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class ConfigurationUtilsTests {
+public class ConfigurationServiceTests {
 
 	@Rule
 	public ExpectedException thrown = ExpectedException.none();
 
 	@Test
-	public void validationOnBindOrCreateWorks() {
+	public void validationOnCreateWorks() {
 		thrown.expect(BindException.class);
 
 		Map<String, Object> map = Collections.singletonMap("config.value", 11);
 
-		ConfigurationUtils.bindOrCreate(ValidatedConfig.class, map, "config", "config",
-				getValidator(), null);
+		ConfigurationService.bindOrCreate(Bindable.of(ValidatedConfig.class), map,
+				"config", getValidator(), null);
 	}
 
 	@Test
-	public void bindOrCreateWorks() {
+	public void createWorks() {
 		Map<String, Object> map = Collections.singletonMap("config.value", 9);
 
-		ValidatedConfig config = ConfigurationUtils.bindOrCreate(ValidatedConfig.class,
-				map, "config", "config", getValidator(), null);
+		ValidatedConfig config = ConfigurationService.bindOrCreate(
+				Bindable.of(ValidatedConfig.class), map, "config", getValidator(), null);
 
 		assertThat(config).isNotNull().extracting(ValidatedConfig::getValue).isEqualTo(9);
 	}
@@ -64,7 +65,8 @@ public class ConfigurationUtilsTests {
 		Map<String, Object> map = Collections.singletonMap("config.value", 11);
 
 		ValidatedConfig config = new ValidatedConfig();
-		ConfigurationUtils.bind(config, map, "config", "config", getValidator(), null);
+		ConfigurationService.bindOrCreate(Bindable.ofInstance(config), map, "config",
+				getValidator(), null);
 	}
 
 	@Test
@@ -72,7 +74,8 @@ public class ConfigurationUtilsTests {
 		Map<String, Object> map = Collections.singletonMap("config.value", 9);
 
 		ValidatedConfig config = new ValidatedConfig();
-		ConfigurationUtils.bind(config, map, "config", "config", getValidator());
+		ConfigurationService.bindOrCreate(Bindable.ofInstance(config), map, "config",
+				getValidator(), null);
 
 		assertThat(config).isNotNull().extracting(ValidatedConfig::getValue).isEqualTo(9);
 	}

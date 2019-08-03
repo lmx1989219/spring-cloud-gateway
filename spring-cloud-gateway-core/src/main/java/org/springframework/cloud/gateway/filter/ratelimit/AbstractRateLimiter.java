@@ -20,7 +20,7 @@ import java.util.Map;
 
 import org.springframework.cloud.gateway.event.FilterArgsEvent;
 import org.springframework.cloud.gateway.support.AbstractStatefulConfigurable;
-import org.springframework.cloud.gateway.support.ConfigurationUtils;
+import org.springframework.cloud.gateway.support.ConfigurationService;
 import org.springframework.context.ApplicationListener;
 import org.springframework.core.style.ToStringCreator;
 import org.springframework.validation.Validator;
@@ -30,25 +30,36 @@ public abstract class AbstractRateLimiter<C> extends AbstractStatefulConfigurabl
 
 	private String configurationPropertyName;
 
-	private Validator validator;
+	private final ConfigurationService configurationService;
 
+	@Deprecated
 	protected AbstractRateLimiter(Class<C> configClass, String configurationPropertyName,
 			Validator validator) {
 		super(configClass);
 		this.configurationPropertyName = configurationPropertyName;
-		this.validator = validator;
+		this.configurationService = new ConfigurationService();
+		this.configurationService.setValidator(validator);
+	}
+
+	protected AbstractRateLimiter(Class<C> configClass, String configurationPropertyName,
+			ConfigurationService configurationService) {
+		super(configClass);
+		this.configurationPropertyName = configurationPropertyName;
+		this.configurationService = configurationService;
 	}
 
 	protected String getConfigurationPropertyName() {
 		return configurationPropertyName;
 	}
 
+	@Deprecated
 	protected Validator getValidator() {
-		return validator;
+		return this.configurationService.getValidator();
 	}
 
+	@Deprecated
 	public void setValidator(Validator validator) {
-		this.validator = validator;
+		this.configurationService.setValidator(validator);
 	}
 
 	@Override
@@ -60,9 +71,10 @@ public abstract class AbstractRateLimiter<C> extends AbstractStatefulConfigurabl
 		}
 
 		String routeId = event.getRouteId();
+
 		C routeConfig = newConfig();
-		ConfigurationUtils.bind(routeConfig, args, configurationPropertyName,
-				configurationPropertyName, validator);
+		this.configurationService.with(routeConfig).name(this.configurationPropertyName)
+				.normalizedProperties(args).bind();
 		getConfig().put(routeId, routeConfig);
 	}
 

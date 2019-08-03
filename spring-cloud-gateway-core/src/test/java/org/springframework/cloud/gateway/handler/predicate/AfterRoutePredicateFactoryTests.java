@@ -83,7 +83,7 @@ public class AfterRoutePredicateFactoryTests {
 	}
 
 	private boolean runPredicate(String dateString) {
-		HashMap<String, String> map = new HashMap<>();
+		HashMap<String, Object> map = new HashMap<>();
 		map.put(DATETIME_KEY, dateString);
 		AfterRoutePredicateFactory factory = new AfterRoutePredicateFactory();
 
