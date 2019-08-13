@@ -27,7 +27,8 @@ import reactor.core.Disposable;
 import reactor.core.publisher.DirectProcessor;
 import reactor.core.publisher.FluxSink;
 
-import org.springframework.cloud.gateway.rsocket.support.Metadata;
+import org.springframework.cloud.gateway.rsocket.support.Forwarding;
+import org.springframework.cloud.gateway.rsocket.support.RouteSetup;
 import org.springframework.util.Assert;
 
 /**
@@ -53,7 +54,7 @@ public class Registry {
 	}
 
 	// TODO: Mono<Void>?
-	public void register(Metadata metadata, RSocket rsocket) {
+	public void register(RouteSetup metadata, RSocket rsocket) {
 		Assert.notNull(metadata, "metadata may not be null");
 		Assert.notNull(rsocket, "RSocket may not be null");
 		if (log.isDebugEnabled()) {
@@ -65,7 +66,7 @@ public class Registry {
 		registeredEventsSink.next(new RegisteredEvent(metadata, rsocket));
 	}
 
-	public void deregister(Metadata metadata) {
+	public void deregister(RouteSetup metadata) {
 		Assert.notNull(metadata, "metadata may not be null");
 		if (log.isDebugEnabled()) {
 			log.debug("Deregistering RSocket: " + metadata);
@@ -76,7 +77,8 @@ public class Registry {
 		}
 	}
 
-	public LoadBalancedRSocket getRegistered(Metadata metadata) {
+	public LoadBalancedRSocket getRegistered(Forwarding metadata) {
+		// TODO: match registered by all tags
 		return rsockets.get(metadata.getName());
 	}
 
@@ -86,18 +88,18 @@ public class Registry {
 
 	public static class RegisteredEvent {
 
-		private final Metadata routingMetadata;
+		private final RouteSetup routingMetadata;
 
 		private final RSocket rSocket;
 
-		public RegisteredEvent(Metadata routingMetadata, RSocket rSocket) {
+		public RegisteredEvent(RouteSetup routingMetadata, RSocket rSocket) {
 			Assert.notNull(routingMetadata, "routingMetadata may not be null");
 			Assert.notNull(rSocket, "RSocket may not be null");
 			this.routingMetadata = routingMetadata;
 			this.rSocket = rSocket;
 		}
 
-		public Metadata getRoutingMetadata() {
+		public RouteSetup getRoutingMetadata() {
 			return routingMetadata;
 		}
 

@@ -17,6 +17,7 @@
 package org.springframework.cloud.gateway.rsocket.socketacceptor;
 
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 
@@ -33,7 +34,9 @@ import reactor.core.publisher.Mono;
 import org.springframework.cloud.gateway.rsocket.autoconfigure.GatewayRSocketProperties;
 import org.springframework.cloud.gateway.rsocket.core.GatewayRSocket;
 import org.springframework.cloud.gateway.rsocket.metrics.MicrometerResponderRSocket;
-import org.springframework.cloud.gateway.rsocket.support.Metadata;
+import org.springframework.cloud.gateway.rsocket.support.RouteSetup;
+import org.springframework.messaging.rsocket.MetadataExtractor;
+import org.springframework.util.MimeType;
 
 public class GatewaySocketAcceptor implements SocketAcceptor {
 
@@ -47,13 +50,16 @@ public class GatewaySocketAcceptor implements SocketAcceptor {
 
 	private final GatewayRSocketProperties properties;
 
+	private final MetadataExtractor metadataExtractor;
+
 	public GatewaySocketAcceptor(GatewayRSocket.Factory rSocketFactory,
 			List<SocketAcceptorFilter> filters, MeterRegistry meterRegistry,
-			GatewayRSocketProperties properties) {
+			GatewayRSocketProperties properties, MetadataExtractor metadataExtractor) {
 		this.rSocketFactory = rSocketFactory;
 		this.filterChain = new SocketAcceptorFilterChain(filters);
 		this.meterRegistry = meterRegistry;
 		this.properties = properties;
+		this.metadataExtractor = metadataExtractor;
 	}
 
 	@Override
@@ -70,9 +76,11 @@ public class GatewaySocketAcceptor implements SocketAcceptor {
 
 		Tags metadataTags;
 		SocketAcceptorExchange exchange;
-		if (setup.hasMetadata()) { // TODO: and setup.metadataMimeType() is Announcement
-									// metadata or composite
-			Metadata metadata = Metadata.decodeMetadata(setup.sliceMetadata());
+
+		Map<String, Object> metadataMap = this.metadataExtractor.extract(setup,
+				MimeType.valueOf(setup.metadataMimeType()));
+		if (metadataMap.containsKey("routesetup")) {
+			RouteSetup metadata = (RouteSetup) metadataMap.get("routesetup");
 			metadataTags = Tags.of("service.name", metadata.getName()).and("service.id",
 					metadata.get("id"));
 			// enrich exchange to have metadata

@@ -16,13 +16,16 @@
 
 package org.springframework.cloud.gateway.rsocket.core;
 
+import java.util.Map;
+
 import io.micrometer.core.instrument.Tags;
 import io.rsocket.Payload;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import org.springframework.cloud.gateway.rsocket.filter.AbstractRSocketExchange;
-import org.springframework.cloud.gateway.rsocket.support.Metadata;
+import org.springframework.cloud.gateway.rsocket.support.Forwarding;
+import org.springframework.messaging.rsocket.MetadataExtractor;
 
 /**
  * Exchange object used in GatewayFilterChain started by GatewayRSocket.
@@ -56,30 +59,38 @@ public class GatewayExchange extends AbstractRSocketExchange {
 
 	private final Type type;
 
-	private final Metadata routingMetadata;
+	private final Forwarding routingMetadata;
 
 	private Tags tags = Tags.empty();
 
-	public static GatewayExchange fromPayload(Type type, Payload payload) {
-		return new GatewayExchange(type, getRoutingMetadata(payload));
+	public static GatewayExchange fromPayload(Type type, Payload payload,
+			MetadataExtractor metadataExtractor) {
+		return new GatewayExchange(type, getRoutingMetadata(metadataExtractor, payload));
 	}
 
-	private static Metadata getRoutingMetadata(Payload payload) {
+	private static Forwarding getRoutingMetadata(MetadataExtractor metadataExtractor,
+			Payload payload) {
 		if (payload == null || !payload.hasMetadata()) { // and metadata is routing
 			return null;
 		}
 
-		// TODO: deal with composite metadata
+		// TODO: deal with payload mimetype
+		Map<String, Object> metadataMap = metadataExtractor.extract(payload,
+				MetadataExtractor.COMPOSITE_METADATA);
 
-		Metadata metadata = Metadata.decodeMetadata(payload.sliceMetadata());
+		if (metadataMap.containsKey("forwarding")) {
+			Forwarding metadata = (Forwarding) metadataMap.get("forwarding");
 
-		if (log.isDebugEnabled()) {
-			log.debug("found routing metadata " + metadata);
+			if (log.isDebugEnabled()) {
+				log.debug("found routing metadata " + metadata);
+			}
+			return metadata;
 		}
-		return metadata;
+
+		return null;
 	}
 
-	public GatewayExchange(Type type, Metadata routingMetadata) {
+	public GatewayExchange(Type type, Forwarding routingMetadata) {
 		this.type = type;
 		this.routingMetadata = routingMetadata;
 	}
@@ -88,7 +99,7 @@ public class GatewayExchange extends AbstractRSocketExchange {
 		return type;
 	}
 
-	public Metadata getRoutingMetadata() {
+	public Forwarding getRoutingMetadata() {
 		return routingMetadata;
 	}
 

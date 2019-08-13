@@ -24,17 +24,24 @@ import java.util.concurrent.atomic.AtomicInteger;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.ByteBufUtil;
+import io.netty.buffer.Unpooled;
 import io.rsocket.util.NumberUtils;
+import org.reactivestreams.Publisher;
+import reactor.core.publisher.Flux;
 
+import org.springframework.core.ResolvableType;
+import org.springframework.core.codec.AbstractDecoder;
+import org.springframework.core.codec.AbstractEncoder;
+import org.springframework.core.codec.DecodingException;
+import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.core.io.buffer.DataBufferFactory;
+import org.springframework.core.io.buffer.NettyDataBuffer;
+import org.springframework.core.io.buffer.NettyDataBufferFactory;
 import org.springframework.core.style.ToStringCreator;
 import org.springframework.util.Assert;
+import org.springframework.util.MimeType;
 
 public class Metadata {
-
-	/**
-	 * Mime type of routing extension.
-	 */
-	public static final String ROUTING_MIME_TYPE = "message/x.rsocket.routing.v0";
 
 	/**
 	 * The logical name.
@@ -77,19 +84,19 @@ public class Metadata {
 		return new Builder(name);
 	}
 
-	public static ByteBuf encode(Metadata metadata) {
+	static ByteBuf encode(Metadata metadata) {
 		return encode(ByteBufAllocator.DEFAULT, metadata);
 	}
 
-	public static ByteBuf encode(ByteBufAllocator allocator, Metadata metadata) {
+	static ByteBuf encode(ByteBufAllocator allocator, Metadata metadata) {
 		return encode(allocator, metadata.getName(), metadata.getProperties());
 	}
 
-	public static ByteBuf encode(String name, Map<String, String> properties) {
+	static ByteBuf encode(String name, Map<String, String> properties) {
 		return encode(ByteBufAllocator.DEFAULT, name, properties);
 	}
 
-	public static ByteBuf encode(ByteBufAllocator allocator, String name,
+	static ByteBuf encode(ByteBufAllocator allocator, String name,
 			Map<String, String> properties) {
 		Assert.hasText(name, "name may not be empty");
 		Assert.notNull(properties, "properties may not be null");
@@ -180,6 +187,12 @@ public class Metadata {
 		return true;
 	}
 
+	public static ByteBuf asByteBuf(DataBuffer buffer) {
+		return buffer instanceof NettyDataBuffer
+				? ((NettyDataBuffer) buffer).getNativeBuffer()
+				: Unpooled.wrappedBuffer(buffer.asByteBuffer());
+	}
+
 	public static class Builder {
 
 		private final Metadata metadata;
@@ -198,8 +211,53 @@ public class Metadata {
 			return this.metadata;
 		}
 
-		public ByteBuf encode() {
+		ByteBuf encode() {
 			return Metadata.encode(build());
+		}
+
+	}
+
+	public static class Encoder extends AbstractEncoder<Metadata> {
+
+		public Encoder() {
+			super(RouteSetup.ROUTE_SETUP_MIME_TYPE);
+		}
+
+		@Override
+		public Flux<DataBuffer> encode(Publisher<? extends Metadata> inputStream,
+				DataBufferFactory bufferFactory, ResolvableType elementType,
+				MimeType mimeType, Map<String, Object> hints) {
+			throw new UnsupportedOperationException("stream encoding not supported.");
+		}
+
+		@Override
+		public DataBuffer encodeValue(Metadata value, DataBufferFactory bufferFactory,
+				ResolvableType valueType, MimeType mimeType, Map<String, Object> hints) {
+			NettyDataBufferFactory factory = (NettyDataBufferFactory) bufferFactory;
+			ByteBuf encoded = Metadata.encode(factory.getByteBufAllocator(), value);
+			return factory.wrap(encoded);
+		}
+
+	}
+
+	public static class Decoder extends AbstractDecoder<Metadata> {
+
+		public Decoder() {
+			super(RouteSetup.ROUTE_SETUP_MIME_TYPE);
+		}
+
+		@Override
+		public Flux<Metadata> decode(Publisher<DataBuffer> inputStream,
+				ResolvableType elementType, MimeType mimeType,
+				Map<String, Object> hints) {
+			throw new UnsupportedOperationException("stream decoding not supported.");
+		}
+
+		@Override
+		public Metadata decode(DataBuffer buffer, ResolvableType targetType,
+				MimeType mimeType, Map<String, Object> hints) throws DecodingException {
+			ByteBuf byteBuf = Metadata.asByteBuf(buffer);
+			return Metadata.decodeMetadata(byteBuf);
 		}
 
 	}

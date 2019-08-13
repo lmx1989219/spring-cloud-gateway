@@ -26,7 +26,7 @@ import java.util.Objects;
 import org.springframework.cloud.gateway.rsocket.core.GatewayExchange;
 import org.springframework.cloud.gateway.rsocket.core.GatewayFilter;
 import org.springframework.cloud.gateway.rsocket.support.AsyncPredicate;
-import org.springframework.cloud.gateway.rsocket.support.Metadata;
+import org.springframework.cloud.gateway.rsocket.support.RouteSetup;
 import org.springframework.core.Ordered;
 import org.springframework.core.style.ToStringCreator;
 import org.springframework.util.Assert;
@@ -38,7 +38,7 @@ public class Route implements Ordered {
 
 	private final String id;
 
-	private final Metadata targetMetadata;
+	private final RouteSetup targetMetadata;
 
 	private final int order;
 
@@ -50,7 +50,7 @@ public class Route implements Ordered {
 		return new Builder();
 	}
 
-	private Route(String id, Metadata targetMetadata, int order,
+	private Route(String id, RouteSetup targetMetadata, int order,
 			AsyncPredicate<GatewayExchange> predicate,
 			List<GatewayFilter> gatewayFilters) {
 		this.id = id;
@@ -64,7 +64,7 @@ public class Route implements Ordered {
 		return this.id;
 	}
 
-	public Metadata getTargetMetadata() {
+	public RouteSetup getTargetMetadata() {
 		return this.targetMetadata;
 	}
 
@@ -113,7 +113,7 @@ public class Route implements Ordered {
 
 		protected String id;
 
-		protected Metadata routingMetadata;
+		protected RouteSetup routingMetadata;
 
 		protected int order = 0;
 
@@ -142,7 +142,7 @@ public class Route implements Ordered {
 			return this.predicate;
 		}
 
-		public Builder routingMetadata(Metadata routingMetadata) {
+		public Builder routingMetadata(RouteSetup routingMetadata) {
 			this.routingMetadata = routingMetadata;
 			return this;
 		}

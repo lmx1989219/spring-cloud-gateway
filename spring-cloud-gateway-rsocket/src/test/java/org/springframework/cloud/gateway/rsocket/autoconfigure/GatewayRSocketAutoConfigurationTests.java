@@ -22,6 +22,7 @@ import org.junit.Test;
 import org.springframework.boot.actuate.autoconfigure.metrics.CompositeMeterRegistryAutoConfiguration;
 import org.springframework.boot.actuate.autoconfigure.metrics.MetricsAutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
+import org.springframework.boot.autoconfigure.rsocket.RSocketStrategiesAutoConfiguration;
 import org.springframework.boot.rsocket.server.RSocketServer;
 import org.springframework.boot.rsocket.server.RSocketServerBootstrap;
 import org.springframework.boot.rsocket.server.RSocketServerFactory;
@@ -47,7 +48,8 @@ public class GatewayRSocketAutoConfigurationTests {
 	public void gatewayRSocketConfigured() {
 		new ReactiveWebApplicationContextRunner().withUserConfiguration(MyConfig.class)
 				.withConfiguration(
-						AutoConfigurations.of(GatewayRSocketAutoConfiguration.class,
+						AutoConfigurations.of(RSocketStrategiesAutoConfiguration.class,
+								GatewayRSocketAutoConfiguration.class,
 								CompositeMeterRegistryAutoConfiguration.class,
 								MetricsAutoConfiguration.class))
 				.run(context -> assertThat(context).hasSingleBean(Registry.class)

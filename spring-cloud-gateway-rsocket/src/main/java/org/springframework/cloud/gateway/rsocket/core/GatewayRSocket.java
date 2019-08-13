@@ -39,7 +39,8 @@ import org.springframework.cloud.gateway.rsocket.registry.LoadBalancedRSocket;
 import org.springframework.cloud.gateway.rsocket.registry.Registry;
 import org.springframework.cloud.gateway.rsocket.route.Route;
 import org.springframework.cloud.gateway.rsocket.route.Routes;
-import org.springframework.cloud.gateway.rsocket.support.Metadata;
+import org.springframework.cloud.gateway.rsocket.support.RouteSetup;
+import org.springframework.messaging.rsocket.MetadataExtractor;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
@@ -69,14 +70,18 @@ public class GatewayRSocket extends AbstractRSocket implements ResponderRSocket 
 
 	private final GatewayRSocketProperties properties;
 
-	private final Metadata metadata;
+	private final MetadataExtractor metadataExtractor;
+
+	private final RouteSetup metadata;
 
 	GatewayRSocket(Registry registry, Routes routes, MeterRegistry meterRegistry,
-			GatewayRSocketProperties properties, Metadata metadata) {
+			GatewayRSocketProperties properties, MetadataExtractor metadataExtractor,
+			RouteSetup metadata) {
 		this.registry = registry;
 		this.routes = routes;
 		this.meterRegistry = meterRegistry;
 		this.properties = properties;
+		this.metadataExtractor = metadataExtractor;
 		this.metadata = metadata;
 		this.onClose().doOnSuccess(v -> registry.deregister(metadata))
 				// .doOnNext(v -> log.error("OnClose doOnNext"))
@@ -99,6 +104,10 @@ public class GatewayRSocket extends AbstractRSocket implements ResponderRSocket 
 		return routes;
 	}
 
+	protected MetadataExtractor getMetadataExtractor() {
+		return this.metadataExtractor;
+	}
+
 	@Override
 	public Mono<Void> fireAndForget(Payload payload) {
 		GatewayExchange exchange = createExchange(FIRE_AND_FORGET, payload);
@@ -109,7 +118,8 @@ public class GatewayRSocket extends AbstractRSocket implements ResponderRSocket 
 	}
 
 	private GatewayExchange createExchange(GatewayExchange.Type type, Payload payload) {
-		GatewayExchange exchange = GatewayExchange.fromPayload(type, payload);
+		GatewayExchange exchange = GatewayExchange.fromPayload(type, payload,
+				metadataExtractor);
 		Tags tags = getTags(exchange);
 		exchange.setTags(tags);
 		return exchange;
@@ -228,7 +238,7 @@ public class GatewayRSocket extends AbstractRSocket implements ResponderRSocket 
 			GatewayExchange exchange) {
 		Function<Registry.RegisteredEvent, Mono<Route>> routeFinder = registeredEvent -> getRouteMono(
 				registeredEvent, exchange);
-		return new PendingRequestRSocket(routeFinder, map -> {
+		return new PendingRequestRSocket(metadataExtractor, routeFinder, map -> {
 			Tags tags = exchange.getTags().and("responder.id", map.get("id"));
 			exchange.setTags(tags);
 		});
@@ -255,8 +265,8 @@ public class GatewayRSocket extends AbstractRSocket implements ResponderRSocket 
 		return routeMono;
 	}
 
-	private Mono<Route> matchRoute(Route route, Metadata annoucementMetadata) {
-		Metadata targetMetadata = route.getTargetMetadata();
+	private Mono<Route> matchRoute(Route route, RouteSetup annoucementMetadata) {
+		RouteSetup targetMetadata = route.getTargetMetadata();
 		if (targetMetadata.matches(annoucementMetadata)) {
 			return Mono.just(route);
 		}
@@ -282,7 +292,7 @@ public class GatewayRSocket extends AbstractRSocket implements ResponderRSocket 
 
 								return loadBalancedRSocket.choose();
 							}).map(enrichedRSocket -> {
-								Metadata metadata = enrichedRSocket.getMetadata();
+								RouteSetup metadata = enrichedRSocket.getMetadata();
 								Tags tags = exchange.getTags().and("responder.id",
 										metadata.get("id"));
 								exchange.setTags(tags);
@@ -311,17 +321,21 @@ public class GatewayRSocket extends AbstractRSocket implements ResponderRSocket 
 
 		private final GatewayRSocketProperties properties;
 
+		private final MetadataExtractor metadataExtractor;
+
 		public Factory(Registry registry, Routes routes, MeterRegistry meterRegistry,
-				GatewayRSocketProperties properties) {
+				GatewayRSocketProperties properties,
+				MetadataExtractor metadataExtractor) {
 			this.registry = registry;
 			this.routes = routes;
 			this.meterRegistry = meterRegistry;
 			this.properties = properties;
+			this.metadataExtractor = metadataExtractor;
 		}
 
-		public GatewayRSocket create(Metadata metadata) {
+		public GatewayRSocket create(RouteSetup metadata) {
 			return new GatewayRSocket(this.registry, this.routes, this.meterRegistry,
-					this.properties, metadata);
+					this.properties, this.metadataExtractor, metadata);
 		}
 
 	}

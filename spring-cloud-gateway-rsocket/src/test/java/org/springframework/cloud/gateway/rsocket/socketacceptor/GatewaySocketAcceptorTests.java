@@ -23,6 +23,7 @@ import java.util.Collections;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.rsocket.ConnectionSetupPayload;
+import io.rsocket.Payload;
 import io.rsocket.RSocket;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -33,12 +34,20 @@ import reactor.core.publisher.Mono;
 import org.springframework.cloud.gateway.rsocket.autoconfigure.GatewayRSocketProperties;
 import org.springframework.cloud.gateway.rsocket.core.GatewayRSocket;
 import org.springframework.cloud.gateway.rsocket.support.Metadata;
+import org.springframework.cloud.gateway.rsocket.support.RouteSetup;
+import org.springframework.cloud.gateway.rsocket.test.MetadataEncoder;
+import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.messaging.rsocket.DefaultMetadataExtractor;
+import org.springframework.messaging.rsocket.PayloadUtils;
+import org.springframework.messaging.rsocket.RSocketStrategies;
 
 import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.springframework.cloud.gateway.rsocket.support.RouteSetup.ROUTE_SETUP_MIME_TYPE;
+import static org.springframework.messaging.rsocket.MetadataExtractor.COMPOSITE_METADATA;
 
 /**
  * @author Rossen Stoyanchev
@@ -57,6 +66,12 @@ public class GatewaySocketAcceptorTests {
 
 	private GatewayRSocketProperties properties = new GatewayRSocketProperties();
 
+	private final RSocketStrategies rSocketStrategies = RSocketStrategies.builder()
+			.decoder(new RouteSetup.Decoder()).encoder(new RouteSetup.Encoder()).build();
+
+	private DefaultMetadataExtractor metadataExtractor = new DefaultMetadataExtractor(
+			rSocketStrategies.decoders());
+
 	@Before
 	public void init() {
 		this.factory = mock(GatewayRSocket.Factory.class);
@@ -64,8 +79,27 @@ public class GatewaySocketAcceptorTests {
 		this.sendingSocket = mock(RSocket.class);
 		this.meterRegistry = new SimpleMeterRegistry();
 
-		when(this.factory.create(any(Metadata.class)))
+		this.metadataExtractor.metadataToExtract(ROUTE_SETUP_MIME_TYPE, RouteSetup.class,
+				"routesetup");
+
+		when(this.factory.create(any(RouteSetup.class)))
 				.thenReturn(mock(GatewayRSocket.class));
+
+		when(this.setupPayload.metadataMimeType())
+				.thenReturn(COMPOSITE_METADATA.toString());
+
+		when(this.setupPayload.hasMetadata()).thenReturn(true);
+
+		MetadataEncoder encoder = new MetadataEncoder(COMPOSITE_METADATA,
+				this.rSocketStrategies);
+		encoder.metadata(
+				new RouteSetup(
+						Metadata.from("myservice").with("id", "myservice1").build()),
+				ROUTE_SETUP_MIME_TYPE);
+		DataBuffer dataBuffer = encoder.encode();
+		DataBuffer data = MetadataEncoder.emptyDataBuffer(rSocketStrategies);
+		Payload payload = PayloadUtils.createPayload(data, dataBuffer);
+		when(setupPayload.metadata()).thenReturn(payload.metadata());
 	}
 
 	// TODO: test metrics
@@ -78,7 +112,8 @@ public class GatewaySocketAcceptorTests {
 
 		RSocket socket = new GatewaySocketAcceptor(this.factory,
 				Arrays.asList(filter1, filter2, filter3), this.meterRegistry,
-				this.properties).accept(this.setupPayload, this.sendingSocket)
+				this.properties, this.metadataExtractor)
+						.accept(this.setupPayload, this.sendingSocket)
 						.block(Duration.ZERO);
 
 		assertThat(filter1.invoked()).isTrue();
@@ -90,7 +125,7 @@ public class GatewaySocketAcceptorTests {
 	@Test
 	public void zeroFilters() {
 		RSocket socket = new GatewaySocketAcceptor(this.factory, Collections.emptyList(),
-				this.meterRegistry, this.properties)
+				this.meterRegistry, this.properties, this.metadataExtractor)
 						.accept(this.setupPayload, this.sendingSocket)
 						.block(Duration.ZERO);
 
@@ -106,7 +141,8 @@ public class GatewaySocketAcceptorTests {
 
 		RSocket socket = new GatewaySocketAcceptor(this.factory,
 				Arrays.asList(filter1, filter2, filter3), this.meterRegistry,
-				this.properties).accept(this.setupPayload, this.sendingSocket)
+				this.properties, this.metadataExtractor)
+						.accept(this.setupPayload, this.sendingSocket)
 						.block(Duration.ZERO);
 
 		assertThat(filter1.invoked()).isTrue();
@@ -121,7 +157,7 @@ public class GatewaySocketAcceptorTests {
 		AsyncFilter filter = new AsyncFilter();
 
 		RSocket socket = new GatewaySocketAcceptor(this.factory, singletonList(filter),
-				this.meterRegistry, this.properties)
+				this.meterRegistry, this.properties, this.metadataExtractor)
 						.accept(this.setupPayload, this.sendingSocket)
 						.block(Duration.ofSeconds(5));
 
@@ -136,7 +172,8 @@ public class GatewaySocketAcceptorTests {
 		ExceptionFilter filter = new ExceptionFilter();
 
 		new GatewaySocketAcceptor(this.factory, singletonList(filter), this.meterRegistry,
-				this.properties).accept(this.setupPayload, this.sendingSocket)
+				this.properties, this.metadataExtractor)
+						.accept(this.setupPayload, this.sendingSocket)
 						.block(Duration.ofSeconds(5));
 
 	}
