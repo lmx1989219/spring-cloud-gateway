@@ -44,6 +44,7 @@ import org.springframework.cloud.gateway.rsocket.route.Route;
 import org.springframework.cloud.gateway.rsocket.route.Routes;
 import org.springframework.cloud.gateway.rsocket.support.Forwarding;
 import org.springframework.cloud.gateway.rsocket.support.Metadata;
+import org.springframework.cloud.gateway.rsocket.support.MimeTypes;
 import org.springframework.cloud.gateway.rsocket.support.RouteSetup;
 import org.springframework.cloud.gateway.rsocket.test.MetadataEncoder;
 import org.springframework.core.io.buffer.DataBuffer;
@@ -57,7 +58,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.cloud.gateway.rsocket.support.Forwarding.FORWARDING_MIME_TYPE;
-import static org.springframework.messaging.rsocket.MetadataExtractor.COMPOSITE_METADATA;
 
 /**
  * @author Rossen Stoyanchev
@@ -85,7 +85,7 @@ public class GatewayRSocketTests {
 		this.metadataExtractor.metadataToExtract(FORWARDING_MIME_TYPE, Forwarding.class,
 				"forwarding");
 
-		MetadataEncoder encoder = new MetadataEncoder(COMPOSITE_METADATA,
+		MetadataEncoder encoder = new MetadataEncoder(MimeTypes.COMPOSITE_METADATA,
 				this.rSocketStrategies);
 		DataBuffer dataBuffer = encoder.metadata(
 				new Forwarding(Metadata.from("mock").with("id", "mock1").build()),

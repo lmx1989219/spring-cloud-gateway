@@ -25,6 +25,7 @@ import org.apache.commons.logging.LogFactory;
 
 import org.springframework.cloud.gateway.rsocket.filter.AbstractRSocketExchange;
 import org.springframework.cloud.gateway.rsocket.support.Forwarding;
+import org.springframework.cloud.gateway.rsocket.support.MimeTypes;
 import org.springframework.messaging.rsocket.MetadataExtractor;
 
 /**
@@ -76,7 +77,7 @@ public class GatewayExchange extends AbstractRSocketExchange {
 
 		// TODO: deal with payload mimetype
 		Map<String, Object> metadataMap = metadataExtractor.extract(payload,
-				MetadataExtractor.COMPOSITE_METADATA);
+				MimeTypes.COMPOSITE_METADATA);
 
 		if (metadataMap.containsKey("forwarding")) {
 			Forwarding metadata = (Forwarding) metadataMap.get("forwarding");

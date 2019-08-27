@@ -52,6 +52,7 @@ import org.springframework.cloud.gateway.rsocket.socketacceptor.SocketAcceptorFi
 import org.springframework.cloud.gateway.rsocket.socketacceptor.SocketAcceptorFilterChain;
 import org.springframework.cloud.gateway.rsocket.support.Forwarding;
 import org.springframework.cloud.gateway.rsocket.support.Metadata;
+import org.springframework.cloud.gateway.rsocket.support.MimeTypes;
 import org.springframework.cloud.gateway.rsocket.support.RouteSetup;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
@@ -61,7 +62,6 @@ import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.messaging.rsocket.RSocketStrategies;
 
 import static io.netty.buffer.Unpooled.EMPTY_BUFFER;
-import static org.springframework.messaging.rsocket.MetadataExtractor.COMPOSITE_METADATA;
 
 @SpringBootApplication
 public class PingPongApp {
@@ -112,7 +112,7 @@ public class PingPongApp {
 
 	static ByteBuf getRouteSetupMetadata(RSocketStrategies strategies, String name,
 			String id) {
-		DataBuffer routeSetup = new MetadataEncoder(COMPOSITE_METADATA, strategies)
+		DataBuffer routeSetup = new MetadataEncoder(MimeTypes.COMPOSITE_METADATA, strategies)
 				.metadata(new RouteSetup(Metadata.from(name).with("id", id).build()),
 						RouteSetup.ROUTE_SETUP_MIME_TYPE)
 				.encode();
@@ -120,7 +120,7 @@ public class PingPongApp {
 	}
 
 	static ByteBuf getForwardingMetadata(RSocketStrategies strategies, String name) {
-		DataBuffer routeSetup = new MetadataEncoder(COMPOSITE_METADATA, strategies)
+		DataBuffer routeSetup = new MetadataEncoder(MimeTypes.COMPOSITE_METADATA, strategies)
 				.metadata(new Forwarding(Metadata.from(name).build()),
 						Forwarding.FORWARDING_MIME_TYPE)
 				.encode();
@@ -166,7 +166,7 @@ public class PingPongApp {
 					meterRegistry, Tag.of("component", "ping"));
 			ByteBuf metadata = getRouteSetupMetadata(strategies, "ping", "ping" + id);
 			pongFlux = RSocketFactory.connect().frameDecoder(PayloadDecoder.ZERO_COPY)
-					.metadataMimeType(COMPOSITE_METADATA.toString())
+					.metadataMimeType(MimeTypes.COMPOSITE_METADATA.toString())
 					.setupPayload(DefaultPayload.create(EMPTY_BUFFER, metadata))
 					.addRequesterPlugin(interceptor)
 					.transport(TcpClientTransport.create(gatewayPort)) // proxy
@@ -243,7 +243,7 @@ public class PingPongApp {
 
 			ByteBuf announcementMetadata = getRouteSetupMetadata(strategies, "pong",
 					"pong1");
-			RSocketFactory.connect().metadataMimeType(COMPOSITE_METADATA.toString())
+			RSocketFactory.connect().metadataMimeType(MimeTypes.COMPOSITE_METADATA.toString())
 					.setupPayload(
 							DefaultPayload.create(EMPTY_BUFFER, announcementMetadata))
 					.addRequesterPlugin(interceptor).acceptor(this::accept)
