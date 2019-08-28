@@ -34,7 +34,6 @@ import reactor.core.publisher.Mono;
 import org.springframework.cloud.gateway.rsocket.autoconfigure.GatewayRSocketProperties;
 import org.springframework.cloud.gateway.rsocket.core.GatewayRSocket;
 import org.springframework.cloud.gateway.rsocket.support.Metadata;
-import org.springframework.cloud.gateway.rsocket.support.MimeTypes;
 import org.springframework.cloud.gateway.rsocket.support.RouteSetup;
 import org.springframework.cloud.gateway.rsocket.test.MetadataEncoder;
 import org.springframework.core.io.buffer.DataBuffer;
@@ -86,11 +85,11 @@ public class GatewaySocketAcceptorTests {
 				.thenReturn(mock(GatewayRSocket.class));
 
 		when(this.setupPayload.metadataMimeType())
-				.thenReturn(MimeTypes.COMPOSITE_METADATA.toString());
+				.thenReturn(Metadata.COMPOSITE_MIME_TYPE.toString());
 
 		when(this.setupPayload.hasMetadata()).thenReturn(true);
 
-		MetadataEncoder encoder = new MetadataEncoder(MimeTypes.COMPOSITE_METADATA,
+		MetadataEncoder encoder = new MetadataEncoder(Metadata.COMPOSITE_MIME_TYPE,
 				this.rSocketStrategies);
 		encoder.metadata(
 				new RouteSetup(

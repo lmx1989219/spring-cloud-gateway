@@ -25,6 +25,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
+import io.rsocket.metadata.WellKnownMimeType;
 import io.rsocket.util.NumberUtils;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
@@ -42,6 +43,12 @@ import org.springframework.util.Assert;
 import org.springframework.util.MimeType;
 
 public class Metadata {
+
+	/**
+	 * Composite Metadata MimeType.
+	 */
+	public static final MimeType COMPOSITE_MIME_TYPE = MimeType
+			.valueOf(WellKnownMimeType.MESSAGE_RSOCKET_COMPOSITE_METADATA.toString());
 
 	/**
 	 * The logical name.

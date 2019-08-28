@@ -52,7 +52,6 @@ import org.springframework.cloud.gateway.rsocket.socketacceptor.SocketAcceptorFi
 import org.springframework.cloud.gateway.rsocket.socketacceptor.SocketAcceptorFilterChain;
 import org.springframework.cloud.gateway.rsocket.support.Forwarding;
 import org.springframework.cloud.gateway.rsocket.support.Metadata;
-import org.springframework.cloud.gateway.rsocket.support.MimeTypes;
 import org.springframework.cloud.gateway.rsocket.support.RouteSetup;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
@@ -112,7 +111,7 @@ public class PingPongApp {
 
 	static ByteBuf getRouteSetupMetadata(RSocketStrategies strategies, String name,
 			String id) {
-		DataBuffer routeSetup = new MetadataEncoder(MimeTypes.COMPOSITE_METADATA, strategies)
+		DataBuffer routeSetup = new MetadataEncoder(Metadata.COMPOSITE_MIME_TYPE, strategies)
 				.metadata(new RouteSetup(Metadata.from(name).with("id", id).build()),
 						RouteSetup.ROUTE_SETUP_MIME_TYPE)
 				.encode();
@@ -120,7 +119,7 @@ public class PingPongApp {
 	}
 
 	static ByteBuf getForwardingMetadata(RSocketStrategies strategies, String name) {
-		DataBuffer routeSetup = new MetadataEncoder(MimeTypes.COMPOSITE_METADATA, strategies)
+		DataBuffer routeSetup = new MetadataEncoder(Metadata.COMPOSITE_MIME_TYPE, strategies)
 				.metadata(new Forwarding(Metadata.from(name).build()),
 						Forwarding.FORWARDING_MIME_TYPE)
 				.encode();
@@ -166,7 +165,7 @@ public class PingPongApp {
 					meterRegistry, Tag.of("component", "ping"));
 			ByteBuf metadata = getRouteSetupMetadata(strategies, "ping", "ping" + id);
 			pongFlux = RSocketFactory.connect().frameDecoder(PayloadDecoder.ZERO_COPY)
-					.metadataMimeType(MimeTypes.COMPOSITE_METADATA.toString())
+					.metadataMimeType(Metadata.COMPOSITE_MIME_TYPE.toString())
 					.setupPayload(DefaultPayload.create(EMPTY_BUFFER, metadata))
 					.addRequesterPlugin(interceptor)
 					.transport(TcpClientTransport.create(gatewayPort)) // proxy
@@ -241,9 +240,10 @@ public class PingPongApp {
 			MicrometerRSocketInterceptor interceptor = new MicrometerRSocketInterceptor(
 					meterRegistry, Tag.of("component", "pong"));
 
-			ByteBuf announcementMetadata = getRouteSetupMetadata(strategies, "pong",
-					"pong1");
-			RSocketFactory.connect().metadataMimeType(MimeTypes.COMPOSITE_METADATA.toString())
+			ByteBuf announcementMetadata = getRouteSetupMetadata(strategies,
+					"pong", "pong1");
+			RSocketFactory.connect()
+					.metadataMimeType(Metadata.COMPOSITE_MIME_TYPE.toString())
 					.setupPayload(
 							DefaultPayload.create(EMPTY_BUFFER, announcementMetadata))
 					.addRequesterPlugin(interceptor).acceptor(this::accept)
@@ -263,8 +263,7 @@ public class PingPongApp {
 					}).map(PingPongApp::reply).map(reply -> {
 						ByteBuf data = ByteBufUtil.writeUtf8(ByteBufAllocator.DEFAULT,
 								reply);
-						ByteBuf routingMetadata = getForwardingMetadata(strategies,
-								"ping");
+						ByteBuf routingMetadata = getForwardingMetadata(strategies, "ping");
 						return DefaultPayload.create(data, routingMetadata);
 					});
 				}
