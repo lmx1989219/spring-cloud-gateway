@@ -33,7 +33,7 @@ public class SocketAcceptorExchange extends AbstractRSocketExchange {
 	private final RouteSetup metadata;
 
 	public SocketAcceptorExchange(ConnectionSetupPayload setup, RSocket sendingSocket) {
-		this(setup, sendingSocket, new RouteSetup(null, Collections.emptyMap()));
+		this(setup, sendingSocket, new RouteSetup(null, null, Collections.emptyMap()));
 	}
 
 	public SocketAcceptorExchange(ConnectionSetupPayload setup, RSocket sendingSocket,

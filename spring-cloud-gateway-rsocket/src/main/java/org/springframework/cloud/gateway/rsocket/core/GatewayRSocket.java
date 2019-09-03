@@ -128,7 +128,7 @@ public class GatewayRSocket extends AbstractRSocket implements ResponderRSocket 
 	private Tags getTags(GatewayExchange exchange) {
 		// TODO: add tags to exchange
 		String requesterName = this.metadata.getName();
-		String requesterId = this.metadata.get("id");
+		String requesterId = this.metadata.getId();
 		String responderName = exchange.getRoutingMetadata().getName();
 		Assert.hasText(responderName, "responderName must not be empty");
 		Assert.hasText(requesterId, "requesterId must not be empty");
@@ -238,8 +238,8 @@ public class GatewayRSocket extends AbstractRSocket implements ResponderRSocket 
 			GatewayExchange exchange) {
 		Function<Registry.RegisteredEvent, Mono<Route>> routeFinder = registeredEvent -> getRouteMono(
 				registeredEvent, exchange);
-		return new PendingRequestRSocket(metadataExtractor, routeFinder, map -> {
-			Tags tags = exchange.getTags().and("responder.id", map.get("id"));
+		return new PendingRequestRSocket(metadataExtractor, routeFinder, routeSetup -> {
+			Tags tags = exchange.getTags().and("responder.id", routeSetup.getId());
 			exchange.setTags(tags);
 		});
 	}
@@ -294,7 +294,7 @@ public class GatewayRSocket extends AbstractRSocket implements ResponderRSocket 
 							}).map(enrichedRSocket -> {
 								RouteSetup metadata = enrichedRSocket.getMetadata();
 								Tags tags = exchange.getTags().and("responder.id",
-										metadata.get("id"));
+										metadata.getId());
 								exchange.setTags(tags);
 								return enrichedRSocket;
 							}).cast(RSocket.class).switchIfEmpty(doOnEmpty(exchange));

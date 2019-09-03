@@ -46,12 +46,18 @@ public class RouteSetup {
 
 	private final Metadata metadata;
 
-	public RouteSetup(String name, Map<String, String> properties) {
+	//TODO: proposed id is 128 bit
+	public RouteSetup(String id, String name, Map<String, String> properties) {
+		properties.put("id", id);
 		this.metadata = new Metadata(name, properties);
 	}
 
 	public RouteSetup(Metadata metadata) {
 		this.metadata = metadata;
+	}
+
+	public String getId() {
+		return get("id");
 	}
 
 	public String getName() {

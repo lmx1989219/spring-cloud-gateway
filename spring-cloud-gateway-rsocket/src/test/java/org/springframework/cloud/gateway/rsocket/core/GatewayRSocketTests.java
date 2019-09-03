@@ -195,8 +195,8 @@ public class GatewayRSocketTests {
 		PendingRequestRSocket constructPendingRSocket(GatewayExchange exchange) {
 			Function<Registry.RegisteredEvent, Mono<Route>> routeFinder = registeredEvent -> getRouteMono(
 					registeredEvent, exchange);
-			return new PendingRequestRSocket(getMetadataExtractor(), routeFinder, map -> {
-				Tags tags = exchange.getTags().and("responder.id", map.get("id"));
+			return new PendingRequestRSocket(getMetadataExtractor(), routeFinder, routeSetup -> {
+				Tags tags = exchange.getTags().and("responder.id", routeSetup.getId());
 				exchange.setTags(tags);
 			}, processor);
 		}
