@@ -31,6 +31,7 @@ import org.springframework.core.io.buffer.DataBufferFactory;
 import org.springframework.core.io.buffer.NettyDataBufferFactory;
 import org.springframework.util.MimeType;
 
+// TODO: currently an ENVELOPE frame in RSocket extension, also discarding tags and origin route id
 public class Forwarding {
 
 	/**
