@@ -59,7 +59,6 @@ public class MetadataEncoder {
 	/** For route variable replacement. */
 	private static final Pattern VARS_PATTERN = Pattern.compile("\\{([^/]+?)}");
 
-
 	private final MimeType metadataMimeType;
 
 	private final RSocketStrategies strategies;
@@ -240,7 +239,9 @@ public class MetadataEncoder {
 	}
 
 	static ByteBuf asByteBuf(DataBuffer buffer) {
-		return buffer instanceof NettyDataBuffer ?
-				((NettyDataBuffer) buffer).getNativeBuffer() : Unpooled.wrappedBuffer(buffer.asByteBuffer());
+		return buffer instanceof NettyDataBuffer
+				? ((NettyDataBuffer) buffer).getNativeBuffer()
+				: Unpooled.wrappedBuffer(buffer.asByteBuffer());
 	}
+
 }

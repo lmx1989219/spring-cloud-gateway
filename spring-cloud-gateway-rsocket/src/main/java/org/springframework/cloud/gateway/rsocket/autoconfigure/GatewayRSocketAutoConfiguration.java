@@ -113,7 +113,8 @@ public class GatewayRSocketAutoConfiguration {
 				properties, metadataExtractor);
 	}
 
-	public static MetadataExtractor registerMimeTypes(RSocketStrategies rSocketStrategies) {
+	public static MetadataExtractor registerMimeTypes(
+			RSocketStrategies rSocketStrategies) {
 		MetadataExtractor metadataExtractor = rSocketStrategies.metadataExtractor();
 		// TODO: see if possible to make easier in framework.
 		if (metadataExtractor instanceof DefaultMetadataExtractor) {

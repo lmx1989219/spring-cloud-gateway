@@ -111,18 +111,19 @@ public class PingPongApp {
 
 	static ByteBuf getRouteSetupMetadata(RSocketStrategies strategies, String name,
 			String id) {
-		DataBuffer routeSetup = new MetadataEncoder(Metadata.COMPOSITE_MIME_TYPE, strategies)
-				.metadata(new RouteSetup(Metadata.from(name).with("id", id).build()),
-						RouteSetup.ROUTE_SETUP_MIME_TYPE)
-				.encode();
+		DataBuffer routeSetup = new MetadataEncoder(Metadata.COMPOSITE_MIME_TYPE,
+				strategies).metadata(
+						new RouteSetup(Metadata.from(name).with("id", id).build()),
+						RouteSetup.ROUTE_SETUP_MIME_TYPE).encode();
 		return Metadata.asByteBuf(routeSetup);
 	}
 
 	static ByteBuf getForwardingMetadata(RSocketStrategies strategies, String name) {
-		DataBuffer routeSetup = new MetadataEncoder(Metadata.COMPOSITE_MIME_TYPE, strategies)
-				.metadata(new Forwarding(Metadata.from(name).build()),
-						Forwarding.FORWARDING_MIME_TYPE)
-				.encode();
+		DataBuffer routeSetup = new MetadataEncoder(Metadata.COMPOSITE_MIME_TYPE,
+				strategies)
+						.metadata(new Forwarding(Metadata.from(name).build()),
+								Forwarding.FORWARDING_MIME_TYPE)
+						.encode();
 		return Metadata.asByteBuf(routeSetup);
 	}
 
@@ -240,8 +241,8 @@ public class PingPongApp {
 			MicrometerRSocketInterceptor interceptor = new MicrometerRSocketInterceptor(
 					meterRegistry, Tag.of("component", "pong"));
 
-			ByteBuf announcementMetadata = getRouteSetupMetadata(strategies,
-					"pong", "pong1");
+			ByteBuf announcementMetadata = getRouteSetupMetadata(strategies, "pong",
+					"pong1");
 			RSocketFactory.connect()
 					.metadataMimeType(Metadata.COMPOSITE_MIME_TYPE.toString())
 					.setupPayload(
@@ -263,7 +264,8 @@ public class PingPongApp {
 					}).map(PingPongApp::reply).map(reply -> {
 						ByteBuf data = ByteBufUtil.writeUtf8(ByteBufAllocator.DEFAULT,
 								reply);
-						ByteBuf routingMetadata = getForwardingMetadata(strategies, "ping");
+						ByteBuf routingMetadata = getForwardingMetadata(strategies,
+								"ping");
 						return DefaultPayload.create(data, routingMetadata);
 					});
 				}
