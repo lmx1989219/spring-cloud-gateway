@@ -81,8 +81,8 @@ public class GatewaySocketAcceptor implements SocketAcceptor {
 				MimeType.valueOf(setup.metadataMimeType()));
 		if (metadataMap.containsKey("routesetup")) {
 			RouteSetup metadata = (RouteSetup) metadataMap.get("routesetup");
-			metadataTags = Tags.of("service.name", metadata.getName()).and("service.id",
-					metadata.getId());
+			metadataTags = Tags.of("service.name", metadata.getServiceName()).and("service.id",
+					metadata.getId().toString());
 			// enrich exchange to have metadata
 			exchange = new SocketAcceptorExchange(setup,
 					decorate(sendingSocket, requesterTags.and(metadataTags)), metadata);

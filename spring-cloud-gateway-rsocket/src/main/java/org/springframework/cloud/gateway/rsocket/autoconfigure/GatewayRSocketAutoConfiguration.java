@@ -31,9 +31,9 @@ import org.springframework.boot.rsocket.server.RSocketServerBootstrap;
 import org.springframework.boot.rsocket.server.RSocketServerFactory;
 import org.springframework.cloud.gateway.rsocket.core.GatewayRSocket;
 import org.springframework.cloud.gateway.rsocket.core.GatewayServerRSocketFactoryCustomizer;
-import org.springframework.cloud.gateway.rsocket.registry.Registry;
 import org.springframework.cloud.gateway.rsocket.registry.RegistryRoutes;
 import org.springframework.cloud.gateway.rsocket.registry.RegistrySocketAcceptorFilter;
+import org.springframework.cloud.gateway.rsocket.registry.RoutingTable;
 import org.springframework.cloud.gateway.rsocket.route.Routes;
 import org.springframework.cloud.gateway.rsocket.socketacceptor.GatewaySocketAcceptor;
 import org.springframework.cloud.gateway.rsocket.socketacceptor.SocketAcceptorFilter;
@@ -63,28 +63,28 @@ import static org.springframework.cloud.gateway.rsocket.support.RouteSetup.ROUTE
 public class GatewayRSocketAutoConfiguration {
 
 	@Bean
-	public Registry registry() {
-		return new Registry();
+	public RoutingTable registry() {
+		return new RoutingTable();
 	}
 
 	// TODO: CompositeRoutes
 	@Bean
-	public RegistryRoutes registryRoutes(Registry registry) {
+	public RegistryRoutes registryRoutes(RoutingTable routingTable) {
 		RegistryRoutes registryRoutes = new RegistryRoutes();
-		registry.addListener(registryRoutes);
+		routingTable.addListener(registryRoutes);
 		return registryRoutes;
 	}
 
 	@Bean
-	public RegistrySocketAcceptorFilter registrySocketAcceptorFilter(Registry registry) {
-		return new RegistrySocketAcceptorFilter(registry);
+	public RegistrySocketAcceptorFilter registrySocketAcceptorFilter(RoutingTable routingTable) {
+		return new RegistrySocketAcceptorFilter(routingTable);
 	}
 
 	@Bean
-	public GatewayRSocket.Factory gatewayRSocketFactory(Registry registry, Routes routes,
+	public GatewayRSocket.Factory gatewayRSocketFactory(RoutingTable routingTable, Routes routes,
 			MeterRegistry meterRegistry, GatewayRSocketProperties properties,
 			RSocketStrategies rSocketStrategies) {
-		return new GatewayRSocket.Factory(registry, routes, meterRegistry, properties,
+		return new GatewayRSocket.Factory(routingTable, routes, meterRegistry, properties,
 				rSocketStrategies.metadataExtractor());
 	}
 

@@ -34,7 +34,7 @@ import reactor.core.publisher.MonoProcessor;
 import reactor.util.function.Tuple2;
 
 import org.springframework.cloud.gateway.rsocket.filter.RSocketFilter.Success;
-import org.springframework.cloud.gateway.rsocket.registry.Registry.RegisteredEvent;
+import org.springframework.cloud.gateway.rsocket.registry.RoutingTable.RegisteredEvent;
 import org.springframework.cloud.gateway.rsocket.route.Route;
 import org.springframework.cloud.gateway.rsocket.support.RouteSetup;
 import org.springframework.messaging.rsocket.MetadataExtractor;
@@ -87,7 +87,7 @@ public class PendingRequestRSocket extends AbstractRSocket
 	public void accept(RegisteredEvent registeredEvent) {
 		this.routeFinder.apply(registeredEvent).subscribe(route -> {
 			this.route = route;
-			this.metadataCallback.accept(registeredEvent.getRoutingMetadata());
+			//FIXME: this.metadataCallback.accept(registeredEvent.getRoutingMetadata());
 			this.rSocketProcessor.onNext(registeredEvent.getRSocket());
 			this.rSocketProcessor.onComplete();
 			if (this.subscriptionDisposable != null) {

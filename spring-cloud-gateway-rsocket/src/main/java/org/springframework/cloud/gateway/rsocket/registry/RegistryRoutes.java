@@ -30,12 +30,12 @@ import reactor.core.publisher.Mono;
 import org.springframework.cloud.gateway.rsocket.route.Route;
 import org.springframework.cloud.gateway.rsocket.route.Routes;
 import org.springframework.cloud.gateway.rsocket.support.Forwarding;
-import org.springframework.cloud.gateway.rsocket.support.RouteSetup;
+import org.springframework.cloud.gateway.rsocket.support.TagsMetadata;
 
 /**
  * Creates routes from RegisteredEvents.
  */
-public class RegistryRoutes implements Routes, Consumer<Registry.RegisteredEvent> {
+public class RegistryRoutes implements Routes, Consumer<RoutingTable.RegisteredEvent> {
 
 	private static final Log log = LogFactory.getLog(RegistryRoutes.class);
 
@@ -53,29 +53,28 @@ public class RegistryRoutes implements Routes, Consumer<Registry.RegisteredEvent
 	}
 
 	@Override
-	public void accept(Registry.RegisteredEvent registeredEvent) {
-		RouteSetup routingMetadata = registeredEvent.getRoutingMetadata();
+	public void accept(RoutingTable.RegisteredEvent registeredEvent) {
+		TagsMetadata routingMetadata = registeredEvent.getRoutingMetadata();
 		String id = getId(routingMetadata);
 
 		routes.computeIfAbsent(id, key -> createRoute(id, routingMetadata));
 	}
 
-	private String getId(RouteSetup routingMetadata) {
-		String id = routingMetadata.getName();
+	private String getId(TagsMetadata routingMetadata) {
+		String id = null; // FIXME: routingMetadata.getTags();
 		if (id == null) {
 			id = UUID.randomUUID().toString();
 		}
 		return id;
 	}
 
-	private Route createRoute(String id, RouteSetup routingMetadata) {
-		Route route = Route.builder().id(id).routingMetadata(routingMetadata)
+	private Route createRoute(String id, TagsMetadata routingMetadata) {
+		Route route = Route.builder().id(id).routingMetadata(null) //FIXME: routingMetadata)
 				.predicate(exchange -> {
 					// TODO: standard predicates
 					// TODO: allow customized predicates
 					Forwarding incomingRouting = exchange.getRoutingMetadata();
-					boolean matches = incomingRouting.getName()
-							.equalsIgnoreCase(routingMetadata.getName());
+					boolean matches = false; // FIXME: incomingRouting.getName().equalsIgnoreCase(routingMetadata.getName());
 					return Mono.just(matches);
 				})
 				// TODO: allow customized filters

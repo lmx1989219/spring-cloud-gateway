@@ -19,6 +19,7 @@ package org.springframework.cloud.gateway.rsocket.core;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.function.Function;
 
@@ -39,12 +40,14 @@ import reactor.test.StepVerifier;
 import org.springframework.cloud.gateway.rsocket.autoconfigure.GatewayRSocketProperties;
 import org.springframework.cloud.gateway.rsocket.registry.LoadBalancedRSocket;
 import org.springframework.cloud.gateway.rsocket.registry.LoadBalancedRSocket.EnrichedRSocket;
-import org.springframework.cloud.gateway.rsocket.registry.Registry;
+import org.springframework.cloud.gateway.rsocket.registry.RoutingTable;
 import org.springframework.cloud.gateway.rsocket.route.Route;
 import org.springframework.cloud.gateway.rsocket.route.Routes;
 import org.springframework.cloud.gateway.rsocket.support.Forwarding;
 import org.springframework.cloud.gateway.rsocket.support.Metadata;
 import org.springframework.cloud.gateway.rsocket.support.RouteSetup;
+import org.springframework.cloud.gateway.rsocket.support.TagsMetadata;
+import org.springframework.cloud.gateway.rsocket.support.WellKnownKey;
 import org.springframework.cloud.gateway.rsocket.test.MetadataEncoder;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.messaging.rsocket.DefaultMetadataExtractor;
@@ -65,7 +68,7 @@ public class GatewayRSocketTests {
 
 	private static Log logger = LogFactory.getLog(GatewayRSocketTests.class);
 
-	private Registry registry;
+	private RoutingTable routingTable;
 
 	private Payload incomingPayload;
 
@@ -79,22 +82,22 @@ public class GatewayRSocketTests {
 
 	@Before
 	public void init() {
-		registry = mock(Registry.class);
+		routingTable = mock(RoutingTable.class);
 
 		this.metadataExtractor.metadataToExtract(FORWARDING_MIME_TYPE, Forwarding.class,
 				"forwarding");
 
 		MetadataEncoder encoder = new MetadataEncoder(Metadata.COMPOSITE_MIME_TYPE,
 				this.rSocketStrategies);
-		DataBuffer dataBuffer = encoder.metadata(
-				new Forwarding(Metadata.from("mock").with("id", "mock1").build()),
-				FORWARDING_MIME_TYPE).encode();
+		Forwarding metadata = new Forwarding(1, TagsMetadata.builder()
+				.with(WellKnownKey.SERVICE_NAME, "mock").build().getTags());
+		DataBuffer dataBuffer = encoder.metadata(metadata, FORWARDING_MIME_TYPE).encode();
 		DataBuffer data = MetadataEncoder.emptyDataBuffer(rSocketStrategies);
 		incomingPayload = PayloadUtils.createPayload(data, dataBuffer);
 
 		RSocket rSocket = mock(RSocket.class);
 		LoadBalancedRSocket loadBalancedRSocket = mock(LoadBalancedRSocket.class);
-		when(registry.getRegistered(any(Forwarding.class)))
+		when(routingTable.getRegistered(any(Forwarding.class)))
 				.thenReturn(loadBalancedRSocket);
 
 		Mono<EnrichedRSocket> mono = Mono
@@ -111,7 +114,7 @@ public class GatewayRSocketTests {
 		TestFilter filter2 = new TestFilter();
 		TestFilter filter3 = new TestFilter();
 
-		Payload payload = new TestGatewayRSocket(registry,
+		Payload payload = new TestGatewayRSocket(routingTable,
 				new TestRoutes(filter1, filter2, filter3), metadataExtractor)
 						.requestResponse(incomingPayload).block(Duration.ZERO);
 
@@ -123,7 +126,7 @@ public class GatewayRSocketTests {
 
 	@Test
 	public void zeroFilters() {
-		Payload payload = new TestGatewayRSocket(registry, new TestRoutes(),
+		Payload payload = new TestGatewayRSocket(routingTable, new TestRoutes(),
 				metadataExtractor).requestResponse(incomingPayload).block(Duration.ZERO);
 
 		assertThat(payload).isNotNull();
@@ -136,7 +139,7 @@ public class GatewayRSocketTests {
 		ShortcircuitingFilter filter2 = new ShortcircuitingFilter();
 		TestFilter filter3 = new TestFilter();
 
-		TestGatewayRSocket gatewayRSocket = new TestGatewayRSocket(registry,
+		TestGatewayRSocket gatewayRSocket = new TestGatewayRSocket(routingTable,
 				new TestRoutes(filter1, filter2, filter3), metadataExtractor);
 		Mono<Payload> response = gatewayRSocket.requestResponse(incomingPayload);
 
@@ -157,7 +160,7 @@ public class GatewayRSocketTests {
 
 		AsyncFilter filter = new AsyncFilter();
 
-		Payload payload = new TestGatewayRSocket(registry, new TestRoutes(filter),
+		Payload payload = new TestGatewayRSocket(routingTable, new TestRoutes(filter),
 				metadataExtractor).requestResponse(incomingPayload)
 						.block(Duration.ofSeconds(5));
 
@@ -171,32 +174,32 @@ public class GatewayRSocketTests {
 
 		ExceptionFilter filter = new ExceptionFilter();
 
-		new TestGatewayRSocket(registry, new TestRoutes(filter), metadataExtractor)
+		new TestGatewayRSocket(routingTable, new TestRoutes(filter), metadataExtractor)
 				.requestResponse(incomingPayload).block(Duration.ofSeconds(5));
 
 		// assertNull(socket);
 	}
 
 	private static RouteSetup getMetadata() {
-		return new RouteSetup(Metadata.from("service").with("id", "service1").build());
+		return new RouteSetup(1L, "service", new LinkedHashMap<>());
 	}
 
 	private static class TestGatewayRSocket extends GatewayRSocket {
 
 		private final MonoProcessor<RSocket> processor = MonoProcessor.create();
 
-		TestGatewayRSocket(Registry registry, Routes routes,
+		TestGatewayRSocket(RoutingTable routingTable, Routes routes,
 				MetadataExtractor metadataExtractor) {
-			super(registry, routes, new SimpleMeterRegistry(),
+			super(routingTable, routes, new SimpleMeterRegistry(),
 					new GatewayRSocketProperties(), metadataExtractor, getMetadata());
 		}
 
 		@Override
 		PendingRequestRSocket constructPendingRSocket(GatewayExchange exchange) {
-			Function<Registry.RegisteredEvent, Mono<Route>> routeFinder = registeredEvent -> getRouteMono(
+			Function<RoutingTable.RegisteredEvent, Mono<Route>> routeFinder = registeredEvent -> getRouteMono(
 					registeredEvent, exchange);
 			return new PendingRequestRSocket(getMetadataExtractor(), routeFinder, routeSetup -> {
-				Tags tags = exchange.getTags().and("responder.id", routeSetup.getId());
+				Tags tags = exchange.getTags().and("responder.id", routeSetup.getId().toString());
 				exchange.setTags(tags);
 			}, processor);
 		}
@@ -224,7 +227,7 @@ public class GatewayRSocketTests {
 		TestRoutes(List<GatewayFilter> filters) {
 			this.filters = filters;
 			route = Route.builder().id("route1")
-					.routingMetadata(new RouteSetup(Metadata.from("mock").build()))
+					.routingMetadata(new RouteSetup(1L, "mock", new LinkedHashMap<>()))
 					.predicate(exchange -> Mono.just(true)).filters(filters).build();
 		}
 

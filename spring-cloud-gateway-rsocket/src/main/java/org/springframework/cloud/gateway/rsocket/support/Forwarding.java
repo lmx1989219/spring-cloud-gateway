@@ -16,6 +16,7 @@
 
 package org.springframework.cloud.gateway.rsocket.support;
 
+import java.math.BigInteger;
 import java.util.Map;
 
 import io.netty.buffer.ByteBuf;
@@ -29,10 +30,11 @@ import org.springframework.core.codec.DecodingException;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferFactory;
 import org.springframework.core.io.buffer.NettyDataBufferFactory;
+import org.springframework.core.style.ToStringCreator;
 import org.springframework.util.MimeType;
 
-// TODO: currently an ENVELOPE frame in RSocket extension, also discarding tags and origin route id
-public class Forwarding {
+// TODO: currently an ENVELOPE frame in RSocket extension, also discarding metadata
+public class Forwarding extends TagsMetadata {
 
 	/**
 	 * Forwarding subtype.
@@ -45,39 +47,29 @@ public class Forwarding {
 	public static final MimeType FORWARDING_MIME_TYPE = new MimeType("message",
 			FORWARDING);
 
-	private final Metadata metadata;
+	private final BigInteger originRouteId;
 
-	public Forwarding(String name, Map<String, String> properties) {
-		this.metadata = new Metadata(name, properties);
+	public Forwarding(long originRouteId, Map<TagsMetadata.Key, String> tags) {
+		this(BigInteger.valueOf(originRouteId), tags);
 	}
 
-	public Forwarding(Metadata metadata) {
-		this.metadata = metadata;
+	public Forwarding(BigInteger originRouteId, Map<TagsMetadata.Key, String> tags) {
+		super(tags);
+		this.originRouteId = originRouteId;
 	}
 
-	public String getName() {
-		return metadata.getName();
-	}
-
-	public Map<String, String> getProperties() {
-		return metadata.getProperties();
-	}
-
-	public String get(String key) {
-		return metadata.get(key);
-	}
-
-	public String put(String key, String value) {
-		return metadata.put(key, value);
+	public BigInteger getOriginRouteId() {
+		return this.originRouteId;
 	}
 
 	@Override
 	public String toString() {
-		return metadata.toString();
-	}
-
-	public boolean matches(Forwarding other) {
-		return metadata.matches(other.metadata);
+		// @formatter:off
+		return new ToStringCreator(this)
+				.append("originRouteId", originRouteId)
+				.append("tags", getTags())
+				.toString();
+		// @formatter:on
 	}
 
 	public static class Encoder extends AbstractEncoder<Forwarding> {
@@ -97,8 +89,7 @@ public class Forwarding {
 		public DataBuffer encodeValue(Forwarding value, DataBufferFactory bufferFactory,
 				ResolvableType valueType, MimeType mimeType, Map<String, Object> hints) {
 			NettyDataBufferFactory factory = (NettyDataBufferFactory) bufferFactory;
-			ByteBuf encoded = Metadata.encode(factory.getByteBufAllocator(),
-					value.metadata);
+			ByteBuf encoded = null; //FIXME: Metadata.encode(factory.getByteBufAllocator(), value.metadata);
 			return factory.wrap(encoded);
 		}
 
@@ -121,7 +112,7 @@ public class Forwarding {
 		public Forwarding decode(DataBuffer buffer, ResolvableType targetType,
 				MimeType mimeType, Map<String, Object> hints) throws DecodingException {
 			ByteBuf byteBuf = Metadata.asByteBuf(buffer);
-			return new Forwarding(Metadata.decodeMetadata(byteBuf));
+			return null; //FIXME: new Forwarding(Metadata.decodeMetadata(byteBuf));
 		}
 
 	}

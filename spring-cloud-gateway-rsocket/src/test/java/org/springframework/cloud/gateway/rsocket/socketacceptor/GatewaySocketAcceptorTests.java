@@ -19,6 +19,7 @@ package org.springframework.cloud.gateway.rsocket.socketacceptor;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -91,10 +92,7 @@ public class GatewaySocketAcceptorTests {
 
 		MetadataEncoder encoder = new MetadataEncoder(Metadata.COMPOSITE_MIME_TYPE,
 				this.rSocketStrategies);
-		encoder.metadata(
-				new RouteSetup(
-						Metadata.from("myservice").with("id", "myservice1").build()),
-				ROUTE_SETUP_MIME_TYPE);
+		encoder.metadata(new RouteSetup(1, "myservice", new LinkedHashMap<>()), ROUTE_SETUP_MIME_TYPE);
 		DataBuffer dataBuffer = encoder.encode();
 		DataBuffer data = MetadataEncoder.emptyDataBuffer(rSocketStrategies);
 		Payload payload = PayloadUtils.createPayload(data, dataBuffer);

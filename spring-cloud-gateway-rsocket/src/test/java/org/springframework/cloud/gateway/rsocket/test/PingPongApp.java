@@ -17,6 +17,7 @@
 package org.springframework.cloud.gateway.rsocket.test;
 
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -53,6 +54,8 @@ import org.springframework.cloud.gateway.rsocket.socketacceptor.SocketAcceptorFi
 import org.springframework.cloud.gateway.rsocket.support.Forwarding;
 import org.springframework.cloud.gateway.rsocket.support.Metadata;
 import org.springframework.cloud.gateway.rsocket.support.RouteSetup;
+import org.springframework.cloud.gateway.rsocket.support.TagsMetadata;
+import org.springframework.cloud.gateway.rsocket.support.WellKnownKey;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.Ordered;
@@ -67,13 +70,13 @@ public class PingPongApp {
 
 	@Bean
 	public Ping ping1() {
-		return new Ping("1");
+		return new Ping(1L);
 	}
 
 	@Bean
 	@ConditionalOnProperty("ping.two.enabled")
 	public Ping ping2() {
-		return new Ping("2");
+		return new Ping(2L);
 	}
 
 	@Bean
@@ -110,20 +113,19 @@ public class PingPongApp {
 	}
 
 	static ByteBuf getRouteSetupMetadata(RSocketStrategies strategies, String name,
-			String id) {
+			long id) {
 		DataBuffer routeSetup = new MetadataEncoder(Metadata.COMPOSITE_MIME_TYPE,
 				strategies).metadata(
-						new RouteSetup(Metadata.from(name).with("id", id).build()),
+						new RouteSetup(id, name, new LinkedHashMap<>()),
 						RouteSetup.ROUTE_SETUP_MIME_TYPE).encode();
 		return Metadata.asByteBuf(routeSetup);
 	}
 
-	static ByteBuf getForwardingMetadata(RSocketStrategies strategies, String name) {
+	static ByteBuf getForwardingMetadata(RSocketStrategies strategies, String name, long id) {
+		Forwarding metadata = new Forwarding(id, TagsMetadata.builder()
+				.with(WellKnownKey.SERVICE_NAME, name).build().getTags());
 		DataBuffer routeSetup = new MetadataEncoder(Metadata.COMPOSITE_MIME_TYPE,
-				strategies)
-						.metadata(new Forwarding(Metadata.from(name).build()),
-								Forwarding.FORWARDING_MIME_TYPE)
-						.encode();
+				strategies).metadata(metadata, Forwarding.FORWARDING_MIME_TYPE).encode();
 		return Metadata.asByteBuf(routeSetup);
 	}
 
@@ -137,13 +139,13 @@ public class PingPongApp {
 		@Autowired
 		private RSocketStrategies strategies;
 
-		private final String id;
+		private final Long id;
 
 		private final AtomicInteger pongsReceived = new AtomicInteger();
 
 		private Flux<String> pongFlux;
 
-		public Ping(String id) {
+		public Ping(Long id) {
 			this.id = id;
 		}
 
@@ -164,7 +166,7 @@ public class PingPongApp {
 
 			MicrometerRSocketInterceptor interceptor = new MicrometerRSocketInterceptor(
 					meterRegistry, Tag.of("component", "ping"));
-			ByteBuf metadata = getRouteSetupMetadata(strategies, "ping", "ping" + id);
+			ByteBuf metadata = getRouteSetupMetadata(strategies, "ping", id);
 			pongFlux = RSocketFactory.connect().frameDecoder(PayloadDecoder.ZERO_COPY)
 					.metadataMimeType(Metadata.COMPOSITE_MIME_TYPE.toString())
 					.setupPayload(DefaultPayload.create(EMPTY_BUFFER, metadata))
@@ -181,7 +183,7 @@ public class PingPongApp {
 						ByteBuf data = ByteBufUtil.writeUtf8(ByteBufAllocator.DEFAULT,
 								"ping" + id);
 						ByteBuf routingMetadata = getForwardingMetadata(strategies,
-								"pong");
+								"pong", id);
 						log.debug("Sending ping" + id);
 						return DefaultPayload.create(data, routingMetadata);
 						// onBackpressue is needed in case pong is not available yet
@@ -242,7 +244,7 @@ public class PingPongApp {
 					meterRegistry, Tag.of("component", "pong"));
 
 			ByteBuf announcementMetadata = getRouteSetupMetadata(strategies, "pong",
-					"pong1");
+					1L);
 			RSocketFactory.connect()
 					.metadataMimeType(Metadata.COMPOSITE_MIME_TYPE.toString())
 					.setupPayload(
@@ -265,7 +267,7 @@ public class PingPongApp {
 						ByteBuf data = ByteBufUtil.writeUtf8(ByteBufAllocator.DEFAULT,
 								reply);
 						ByteBuf routingMetadata = getForwardingMetadata(strategies,
-								"ping");
+								"ping", 1L);
 						return DefaultPayload.create(data, routingMetadata);
 					});
 				}

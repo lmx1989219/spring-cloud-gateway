@@ -16,9 +16,13 @@
 
 package org.springframework.cloud.gateway.rsocket.support;
 
+import java.math.BigInteger;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufAllocator;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
 
@@ -29,9 +33,11 @@ import org.springframework.core.codec.DecodingException;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferFactory;
 import org.springframework.core.io.buffer.NettyDataBufferFactory;
+import org.springframework.core.style.ToStringCreator;
+import org.springframework.util.Assert;
 import org.springframework.util.MimeType;
 
-public class RouteSetup {
+public class RouteSetup extends TagsMetadata {
 
 	/**
 	 * Route Setup subtype.
@@ -44,45 +50,94 @@ public class RouteSetup {
 	public static final MimeType ROUTE_SETUP_MIME_TYPE = new MimeType("message",
 			ROUTE_SETUP);
 
-	private final Metadata metadata;
+	private final BigInteger id;
+	private final String serviceName;
 
-	//TODO: proposed id is 128 bit
-	public RouteSetup(String id, String name, Map<String, String> properties) {
-		properties.put("id", id);
-		this.metadata = new Metadata(name, properties);
+	public RouteSetup(long id, String serviceName, Map<Key, String> tags) {
+		this(BigInteger.valueOf(id), serviceName, tags);
 	}
 
-	public RouteSetup(Metadata metadata) {
-		this.metadata = metadata;
+	public RouteSetup(BigInteger id, String serviceName, Map<Key, String> tags) {
+		super(tags);
+		this.id = id;
+		this.serviceName = serviceName;
 	}
 
-	public String getId() {
-		return get("id");
+	public BigInteger getId() {
+		return this.id;
 	}
 
-	public String getName() {
-		return metadata.getName();
+	public String getServiceName() {
+		return this.serviceName;
 	}
 
-	public Map<String, String> getProperties() {
-		return metadata.getProperties();
+	public boolean matches(RouteSetup other) {
+		return false; //metadata.matches(other.metadata);
 	}
 
-	public String get(String key) {
-		return metadata.get(key);
+	public ByteBuf encode() {
+		return RouteSetup.encode(this);
 	}
 
-	public String put(String key, String value) {
-		return metadata.put(key, value);
+	@Override
+	public TagsMetadata getEnrichedTagsMetadata() {
+		// @formatter:off
+		TagsMetadata tagsMetadata = TagsMetadata.builder(this)
+				.with(WellKnownKey.SERVICE_NAME, getServiceName())
+				.with(WellKnownKey.ROUTE_ID, getId().toString())
+				.build();
+		// @formatter:on
+
+		return tagsMetadata;
 	}
 
 	@Override
 	public String toString() {
-		return metadata.toString();
+		// @formatter:off
+		return new ToStringCreator(this)
+				.append("id", id)
+				.append("serviceName", serviceName)
+				.append("tags", getTags())
+				.toString();
+		// @formatter:on
 	}
 
-	public boolean matches(RouteSetup other) {
-		return metadata.matches(other.metadata);
+	static ByteBuf encode(RouteSetup routeSetup) {
+		return encode(ByteBufAllocator.DEFAULT, routeSetup);
+	}
+
+	static ByteBuf encode(ByteBufAllocator allocator, RouteSetup routeSetup) {
+		Assert.notNull(routeSetup, "routeSetup may not be null");
+		Assert.notNull(allocator, "allocator may not be null");
+		ByteBuf byteBuf = allocator.buffer();
+
+		byte[] idBytes = routeSetup.id.toByteArray();
+		// truncate or pad to 16 bytes or 128 bits
+		//byte[] normalizedBytes = Arrays.copyOf(idBytes, 16);
+		byte[] normalizedBytes = new byte[16];
+		// right shift
+		int destPos = normalizedBytes.length - idBytes.length;
+		System.arraycopy(idBytes, 0, normalizedBytes, destPos, idBytes.length);
+
+		byteBuf.writeBytes(normalizedBytes);
+
+		encodeString(byteBuf, routeSetup.getServiceName());
+
+		return byteBuf;
+	}
+
+	static RouteSetup decode(ByteBuf byteBuf) {
+		AtomicInteger offset = new AtomicInteger(0);
+
+		byte[] idBytes = new byte[16];
+		byteBuf.getBytes(offset.get(), idBytes, 0, 16);
+		offset.getAndAdd(16);
+
+		String serviceName = decodeString(byteBuf, offset);
+
+		RouteSetup routeSetup = new RouteSetup(new BigInteger(idBytes), serviceName, new LinkedHashMap<>());
+
+		return routeSetup;
 	}
 
 	public static class Encoder extends AbstractEncoder<RouteSetup> {
@@ -102,8 +157,7 @@ public class RouteSetup {
 		public DataBuffer encodeValue(RouteSetup value, DataBufferFactory bufferFactory,
 				ResolvableType valueType, MimeType mimeType, Map<String, Object> hints) {
 			NettyDataBufferFactory factory = (NettyDataBufferFactory) bufferFactory;
-			ByteBuf encoded = Metadata.encode(factory.getByteBufAllocator(),
-					value.metadata);
+			ByteBuf encoded = null; //FIXME: Metadata.encode(factory.getByteBufAllocator(), value.metadata);
 			return factory.wrap(encoded);
 		}
 
@@ -126,7 +180,7 @@ public class RouteSetup {
 		public RouteSetup decode(DataBuffer buffer, ResolvableType targetType,
 				MimeType mimeType, Map<String, Object> hints) throws DecodingException {
 			ByteBuf byteBuf = Metadata.asByteBuf(buffer);
-			return new RouteSetup(Metadata.decodeMetadata(byteBuf));
+			return null; //FIXME: new RouteSetup(Metadata.decodeMetadata(byteBuf));
 		}
 
 	}
